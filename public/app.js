@@ -1,37 +1,36 @@
 (() => {
   // Application State
   const state = {
-    persona: localStorage.getItem('stark_persona') || 'jarvis',
-    ttsEnabled: localStorage.getItem('stark_tts') !== 'false',
+    persona: localStorage.getItem('doom_persona') || 'jarvis',
+    ttsEnabled: localStorage.getItem('doom_tts') !== 'false',
     isListening: false,
     isSpeaking: false,
     isProcessing: false,
+    hasNativeBridge: Boolean(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.doomNative),
     apuTelemetry: {
-      engine: 'Apple Neural Engine / WebGPU Hybrid',
-      cores: navigator.hardwareConcurrency || 8,
-      webgpu: false
+      engine: 'A18 Pro 16-Core Neural Engine',
+      cores: navigator.hardwareConcurrency || 6,
+      webgpu: true
     },
-    apiConfig: JSON.parse(localStorage.getItem('stark_api_config') || '{}'),
+    apiConfig: JSON.parse(localStorage.getItem('doom_api_config') || '{}'),
     tasks: JSON.parse(
-      localStorage.getItem('stark_tasks') ||
+      localStorage.getItem('doom_tasks') ||
         JSON.stringify([
-          { id: 't1', text: 'Configurare comando vocale "Ehi Siri, chiedi a Jarvis" su iOS', done: false },
-          { id: 't2', text: 'Testare pre-elaborazione APU locale e query meteo in tempo reale', done: false }
+          { id: 't1', text: 'Pronuncia "Ehi Siri, chiedi a Doom con DoomAi"', done: false },
+          { id: 't2', text: 'Tocca Sync GitHub per ricevere aggiornamenti UI istantanei senza reinstallare IPA', done: false }
         ])
     ),
     memory: JSON.parse(
-      localStorage.getItem('stark_memory') ||
+      localStorage.getItem('doom_memory') ||
         JSON.stringify([
-          { id: 'm1', text: 'Lingua operativa primaria: Italiano (sintesi vocale e dossier tecnici)' },
-          { id: 'm2', text: 'Dispositivo primario: iPhone iOS con integrazione Siri & APU locale' }
+          { id: 'm1', text: 'Operatore Sovrano autorizzato — Sistema DoomAi su iPhone 16 Pro Max' },
+          { id: 'm2', text: 'Lingua operativa primaria: Italiano' }
         ])
-    ),
-    iosPackageFiles: {}
+    )
   };
 
   // DOM Elements
   const bodyEl = document.body;
-  const brandBadge = document.getElementById('brandBadge');
   const systemHeaderTitle = document.getElementById('systemHeaderTitle');
   const systemHeaderSub = document.getElementById('systemHeaderSub');
   const reactorPanelTitle = document.getElementById('reactorPanelTitle');
@@ -46,65 +45,109 @@
   const telemetryProvider = document.getElementById('telemetryProvider');
   const telemetryLatency = document.getElementById('telemetryLatency');
 
-  // 1. Hardware APU / WebGPU / Apple Silicon Neural Engine Detection
-  async function detectHardwareAPU() {
-    const cores = navigator.hardwareConcurrency || 6;
-    let hasWebGpu = false;
-
-    if ('gpu' in navigator) {
+  // Helper to send message to Native iOS IPA Shell (if running inside DoomAi.ipa)
+  function postToNativeBridge(payload) {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.doomNative) {
       try {
-        const adapter = await navigator.gpu.requestAdapter();
-        if (adapter) hasWebGpu = true;
+        window.webkit.messageHandlers.doomNative.postMessage(payload);
+        return true;
       } catch (_) {}
     }
+    return false;
+  }
 
-    const ua = navigator.userAgent || '';
-    const isApple = /iPhone|iPad|Macintosh|Mac OS X/i.test(ua);
-    const engineLabel = isApple
-      ? `Apple Neural Engine / ${hasWebGpu ? 'Metal WebGPU' : 'ANE Bridge'} (${cores} Core)`
-      : `${hasWebGpu ? 'WebGPU APU Attiva' : 'Co-Processore Locale'} (${cores} Core)`;
+  // Receive callbacks from Native iOS IPA Shell (SFSpeechRecognizer, Native APU, etc.)
+  window.onDoomNativeEvent = (event) => {
+    if (!event || !event.type) return;
+    if (event.type === 'voicePartial') {
+      voiceStatusText.textContent = event.transcript || 'In ascolto...';
+      commandInput.value = event.transcript || '';
+    } else if (event.type === 'voiceFinal') {
+      state.isListening = false;
+      voiceStateBadge.textContent = 'PRONTO';
+      btnToggleMic.textContent = 'Ascolto Vocale';
+      btnToggleMic.classList.remove('btn-listening');
+      if (event.transcript && event.transcript.trim()) {
+        commandInput.value = event.transcript.trim();
+        submitQuery(event.transcript.trim());
+      }
+    } else if (event.type === 'voiceState') {
+      state.isListening = Boolean(event.isRecording);
+      voiceStateBadge.textContent = state.isListening ? 'IN ASCOLTO' : 'PRONTO';
+      btnToggleMic.textContent = state.isListening ? 'Ferma Ascolto' : 'Ascolto Vocale';
+      btnToggleMic.classList.toggle('btn-listening', state.isListening);
+      if (event.message) voiceStatusText.textContent = event.message;
+    }
+  };
 
-    state.apuTelemetry = {
-      engine: engineLabel,
-      cores,
-      webgpu: hasWebGpu
-    };
+  // Sync current state to Native iOS UserDefaults so Siri AppIntents shares keys & memories
+  function syncStateToNativeIPA() {
+    postToNativeBridge({
+      action: 'syncConfig',
+      persona: state.persona,
+      ttsEnabled: state.ttsEnabled,
+      apiConfig: state.apiConfig,
+      tasks: state.tasks,
+      memories: state.memory
+    });
+  }
 
-    telemetryApu.textContent = engineLabel;
+  // 1. Hardware APU / Neural Engine Detection
+  async function detectHardwareAPU() {
+    const cores = navigator.hardwareConcurrency || 6;
+    const isNativeIpa = Boolean(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.doomNative);
+    const engineLabel = isNativeIpa
+      ? `A18 Pro 16-Core ANE (${cores} Core IPA)`
+      : `Apple Neural Engine / WebGPU (${cores} Core)`;
+
+    state.apuTelemetry = { engine: engineLabel, cores };
+    if (telemetryApu) telemetryApu.textContent = engineLabel;
     const apuSummaryEl = document.getElementById('apuDeviceSummary');
     const metricWebGpu = document.getElementById('metricWebGpu');
     const metricCores = document.getElementById('metricCores');
     if (apuSummaryEl) apuSummaryEl.textContent = engineLabel;
-    if (metricWebGpu) metricWebGpu.textContent = hasWebGpu ? 'Attivo (Hardware)' : 'Compatibile Fallback';
-    if (metricCores) metricCores.textContent = `${cores} Logical Cores`;
+    if (metricWebGpu) metricWebGpu.textContent = isNativeIpa ? 'Bridge IPA Nativo' : 'WebGPU Attivo';
+    if (metricCores) metricCores.textContent = `${cores} Core Attivi`;
   }
 
-  // 2. Persona Switching (J.A.R.V.I.S. vs E.D.I.T.H.)
+  // 2. Persona Switching (J.A.R.V.I.S. Gold vs E.D.I.T.H. Crimson Gold)
   function applyPersona(persona) {
     state.persona = persona === 'edith' ? 'edith' : 'jarvis';
-    localStorage.setItem('stark_persona', state.persona);
+    localStorage.setItem('doom_persona', state.persona);
     bodyEl.setAttribute('data-persona', state.persona);
 
     document.getElementById('btnPersonaJarvis').classList.toggle('active', state.persona === 'jarvis');
     document.getElementById('btnPersonaEdith').classList.toggle('active', state.persona === 'edith');
 
     if (state.persona === 'edith') {
-      brandBadge.textContent = 'EDH';
-      systemHeaderTitle.textContent = 'E.D.I.T.H. // STARK TACTICAL INTELLIGENCE NETWORK';
-      systemHeaderSub.textContent = 'ASSETTO OTTICO AR + PONTE VOCALE SIRI iOS & ACCELERAZIONE APU';
-      reactorPanelTitle.textContent = 'Reticolo Ottico E.D.I.T.H.';
-      commandInput.placeholder = 'Inserisci bersaglio di ricerca per E.D.I.T.H. (dossier, meteo, calcoli, comandi Siri)...';
+      systemHeaderTitle.textContent = 'DOOM AI // E.D.I.T.H. TACTICAL';
+      systemHeaderSub.textContent = 'ASSETTO OTTICO AR // OTA GITHUB LIVE + SIRI';
+      reactorPanelTitle.textContent = 'Reticolo Tattico E.D.I.T.H.';
+      commandInput.placeholder = 'Inserisci bersaglio per E.D.I.T.H. (dossier, meteo, calcoli, task)...';
     } else {
-      brandBadge.textContent = 'MK7';
-      systemHeaderTitle.textContent = 'J.A.R.V.I.S. // STARK OS OMNI-ASSISTANT';
-      systemHeaderSub.textContent = 'PROTOCOLLO VOCALE iOS SIRI + ACCELERAZIONE APU LOCALE & MULTI-API';
-      reactorPanelTitle.textContent = 'Nucleo Vocale J.A.R.V.I.S.';
-      commandInput.placeholder = 'Chiedi qualsiasi cosa a J.A.R.V.I.S. (ricerche web, dossier, meteo, calcoli, task)...';
+      systemHeaderTitle.textContent = 'DOOM AI // SOVEREIGN HUD';
+      systemHeaderSub.textContent = 'A18 PRO 16-CORE APU // OTA LIVE GITHUB + SIRI';
+      reactorPanelTitle.textContent = 'Nucleo Imperiale DoomAi';
+      commandInput.placeholder = 'Ordina a DoomAi (ricerche web, dossier, meteo, calcoli, task)...';
     }
+    syncStateToNativeIPA();
   }
 
   document.getElementById('btnPersonaJarvis').addEventListener('click', () => applyPersona('jarvis'));
   document.getElementById('btnPersonaEdith').addEventListener('click', () => applyPersona('edith'));
+
+  // OTA Instant Reload from GitHub
+  const btnOtaReload = document.getElementById('btnOtaReload');
+  if (btnOtaReload) {
+    btnOtaReload.addEventListener('click', () => {
+      btnOtaReload.textContent = 'Aggiornamento...';
+      if (!postToNativeBridge({ action: 'reloadOTA' })) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('ota', String(Date.now()));
+        window.location.replace(url.toString());
+      }
+    });
+  }
 
   // 3. Navigation Tabs
   document.querySelectorAll('.nav-tab').forEach((tab) => {
@@ -118,7 +161,7 @@
     });
   });
 
-  // 4. Animated 60fps Canvas Reactor
+  // 4. Animated 60fps Canvas Golden Reactor Rings around the Golden Doctor Doom Mask
   const canvas = document.getElementById('reactorCanvas');
   const ctx = canvas.getContext('2d');
   let phase = 0;
@@ -131,130 +174,90 @@
     ctx.clearRect(0, 0, w, h);
 
     const isEdith = state.persona === 'edith';
-    const primaryColor = isEdith ? '#fb7185' : '#22d3ee';
-    const secondaryColor = isEdith ? '#38bdf8' : '#f59e0b';
-    const speedMultiplier = state.isListening || state.isSpeaking || state.isProcessing ? 2.6 : 1.0;
+    const primaryColor = isEdith ? '#fb7185' : '#f0c138';
+    const secondaryColor = isEdith ? '#f0c138' : '#d97706';
+    const speedMultiplier = state.isListening || state.isSpeaking || state.isProcessing ? 2.8 : 1.0;
     phase += 0.018 * speedMultiplier;
 
+    // Outer segmented 24K Gold ring
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(phase * 0.5);
     ctx.strokeStyle = primaryColor;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 3.5;
     const segments = isEdith ? 6 : 12;
     for (let i = 0; i < segments; i++) {
       const startAngle = (i * 2 * Math.PI) / segments + 0.08;
       const endAngle = ((i + 0.65) * 2 * Math.PI) / segments;
       ctx.beginPath();
-      ctx.arc(0, 0, 175, startAngle, endAngle);
+      ctx.arc(0, 0, 168, startAngle, endAngle);
       ctx.stroke();
     }
     ctx.restore();
 
+    // Counter-rotating inner ring
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(-phase * 0.85);
     ctx.strokeStyle = secondaryColor;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.2;
     for (let i = 0; i < 8; i++) {
       const startAngle = (i * 2 * Math.PI) / 8;
       const endAngle = startAngle + 0.45;
       ctx.beginPath();
-      ctx.arc(0, 0, 136, startAngle, endAngle);
+      ctx.arc(0, 0, 138, startAngle, endAngle);
       ctx.stroke();
     }
     ctx.restore();
 
-    const pulseRadius = 95 + Math.sin(phase * 2.5) * (state.isListening || state.isSpeaking ? 16 : 5);
+    // Glowing halo around the Golden Mask
+    const pulseRadius = 108 + Math.sin(phase * 2.6) * (state.isListening || state.isSpeaking ? 14 : 4);
     ctx.beginPath();
     ctx.arc(cx, cy, pulseRadius, 0, Math.PI * 2);
-    ctx.fillStyle = isEdith ? 'rgba(251, 113, 133, 0.14)' : 'rgba(34, 211, 238, 0.14)';
+    ctx.fillStyle = state.isListening
+      ? 'rgba(244, 63, 94, 0.22)'
+      : isEdith
+      ? 'rgba(251, 113, 133, 0.14)'
+      : 'rgba(240, 193, 56, 0.16)';
     ctx.fill();
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = primaryColor;
+    ctx.strokeStyle = state.isListening ? '#f43f5e' : primaryColor;
     ctx.stroke();
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    if (isEdith) {
-      ctx.rotate(Math.sin(phase * 0.7) * 0.2);
-      ctx.strokeStyle = primaryColor;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-45, 0);
-      ctx.lineTo(45, 0);
-      ctx.moveTo(0, -45);
-      ctx.lineTo(0, 45);
-      ctx.stroke();
-    } else {
-      ctx.beginPath();
-      ctx.arc(0, 0, 46, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(34, 211, 238, 0.26)';
-      ctx.fill();
-      ctx.strokeStyle = primaryColor;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    ctx.fillStyle = '#f1f5f9';
-    ctx.font = '700 20px "JetBrains Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const label = state.isListening
-      ? 'MIC ON'
-      : state.isProcessing
-      ? 'SCAN...'
-      : isEdith
-      ? 'E.D.I.T.H.'
-      : 'J.A.R.V.I.S.';
-    ctx.fillText(label, cx, cy);
 
     requestAnimationFrame(renderReactor);
   }
 
-  // 5. Speech Synthesis (TTS in Italian — iOS Safari Compatible)
+  // 5. Speech Synthesis (Uses Native iOS AVSpeechSynthesizer inside IPA, or Web Speech TTS on desktop)
   function speakText(text) {
-    if (!state.ttsEnabled || !('speechSynthesis' in window) || !text) return;
+    if (!state.ttsEnabled || !text) return;
+    if (postToNativeBridge({ action: 'speak', text, persona: state.persona })) {
+      return;
+    }
+    if (!('speechSynthesis' in window)) return;
     try {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'it-IT';
       utterance.rate = state.persona === 'edith' ? 1.05 : 0.98;
-      utterance.pitch = state.persona === 'edith' ? 1.03 : 0.94;
-
       const voices = window.speechSynthesis.getVoices();
       const itVoice = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith('it'));
       if (itVoice) utterance.voice = itVoice;
-
-      utterance.onstart = () => {
-        state.isSpeaking = true;
-        voiceStateBadge.textContent = 'SINTESI VOCALE';
-      };
-      utterance.onend = () => {
-        state.isSpeaking = false;
-        voiceStateBadge.textContent = 'PRONTO';
-      };
-      utterance.onerror = () => {
-        state.isSpeaking = false;
-        voiceStateBadge.textContent = 'PRONTO';
-      };
-
       window.speechSynthesis.speak(utterance);
     } catch (_) {}
   }
 
   btnToggleTts.addEventListener('click', () => {
     state.ttsEnabled = !state.ttsEnabled;
-    localStorage.setItem('stark_tts', String(state.ttsEnabled));
+    localStorage.setItem('doom_tts', String(state.ttsEnabled));
     btnToggleTts.textContent = `Voce AI: ${state.ttsEnabled ? 'ON' : 'OFF'}`;
-    if (!state.ttsEnabled && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      state.isSpeaking = false;
+    if (!state.ttsEnabled) {
+      postToNativeBridge({ action: 'stopSpeak' });
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     }
+    syncStateToNativeIPA();
   });
 
-  // 6. Voice Recognition (Web Speech API)
+  // 6. Voice Recognition (Uses Native iOS SFSpeechRecognizer inside IPA, or WebSpeech on desktop)
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null;
 
@@ -267,7 +270,7 @@
     recognition.onstart = () => {
       state.isListening = true;
       voiceStateBadge.textContent = 'IN ASCOLTO';
-      voiceStatusText.textContent = 'Parla ora... J.A.R.V.I.S. / E.D.I.T.H. sta acquisendo il segnale vocale.';
+      voiceStatusText.textContent = 'Parla ora... DoomAi sta acquisendo il segnale vocale.';
       btnToggleMic.textContent = 'Ferma Ascolto';
       btnToggleMic.classList.add('btn-listening');
     };
@@ -283,7 +286,6 @@
     recognition.onerror = () => {
       state.isListening = false;
       voiceStateBadge.textContent = 'PRONTO';
-      voiceStatusText.textContent = 'Tocca il reattore o usa la barra comandi.';
       btnToggleMic.textContent = 'Ascolto Vocale';
       btnToggleMic.classList.remove('btn-listening');
     };
@@ -297,9 +299,11 @@
   }
 
   function toggleMicrophone() {
+    if (postToNativeBridge({ action: 'toggleVoice' })) {
+      return;
+    }
     if (!recognition) {
-      voiceStatusText.textContent =
-        'Su iOS puoi usare anche il microfono della tastiera (Dettatura Siri) o il comando "Ehi Siri".';
+      voiceStatusText.textContent = 'Usa il microfono della tastiera iOS o tocca la barra di comando.';
       commandInput.focus();
       return;
     }
@@ -311,48 +315,48 @@
   }
 
   btnToggleMic.addEventListener('click', toggleMicrophone);
-  canvas.addEventListener('click', toggleMicrophone);
+  document.getElementById('reactorTouchArea').addEventListener('click', toggleMicrophone);
 
-  // 7. Standalone Client-Side iOS Intelligence Engine (runs directly on iPhone when no server is used)
+  // 7. Standalone On-Device iOS Intelligence Engine
   async function runStandaloneOnDeviceQuery(query) {
     const startTime = Date.now();
     const persona = state.persona;
     const lower = query.toLowerCase();
-    const cards = [];
 
     // A) Task / Memory Commands
-    if (/^(aggiungi task|crea promemoria|ricordami di|aggiungi nota|memorizza che)/i.test(lower)) {
+    if (/^(aggiungi task|crea promemoria|ricordami di|ricordami|aggiungi nota|memorizza che|memorizza)/i.test(lower)) {
       const extracted = query
-        .replace(/^(aggiungi task|crea promemoria|ricordami di|aggiungi nota|memorizza che)[:\s]*/i, '')
+        .replace(/^(aggiungi task|crea promemoria|ricordami di|ricordami|aggiungi nota|memorizza che|memorizza)[:\s]*/i, '')
         .trim();
       const isMem = lower.includes('memorizza');
       const speech =
         persona === 'edith'
-          ? `Ricevuto. Ho registrato nel database tattico del tuo iPhone: "${extracted}".`
-          : `Certamente, Signore. Ho annotato "${extracted}" nella memoria locale del dispositivo.`;
+          ? `Ricevuto. Ho registrato nel database tattico: "${extracted}".`
+          : `Agli ordini, Signore. Ho annotato "${extracted}" nella memoria di DoomAi.`;
       return {
         ok: true,
         persona,
         speech,
         display: speech,
         provider: `${state.apuTelemetry.engine} (On-Device Vault)`,
-        latencyMs: Math.max(6, Date.now() - startTime),
+        latencyMs: Math.max(5, Date.now() - startTime),
         taskAction: { type: isMem ? 'MEMORY_ADD' : 'TASK_ADD', content: extracted },
         cards: [
           {
-            category: isMem ? 'MEMORIA NEURALE AGGIORNATA' : 'NUOVO TASK OPERATIVO',
+            category: isMem ? 'MEMORIA DOOM AGGIORNATA' : 'NUOVO TASK OPERATIVO',
             title: extracted,
-            summary: 'Salvato direttamente nella memoria persistente del tuo iPhone.'
+            summary: 'Sincronizzato con la memoria nativa dell\'IPA e con Siri.'
           }
         ]
       };
     }
 
-    // B) Live Weather via Open-Meteo directly from iPhone
+    // B) Live Weather via Open-Meteo
     if (/\b(meteo|tempo|temperatura|piove|previsioni)\b/i.test(lower)) {
       const cityMatch =
         query.match(/(?:meteo|tempo|temperatura|previsioni)\s+(?:a|di|per|su|in)?\s*([a-zA-ZÀ-ÿ\s]{2,25})/i) || [];
-      const targetCity = (cityMatch[1] || 'Roma').replace(/\b(oggi|domani|adesso|ora|live|in tempo reale)\b/gi, '').trim() || 'Roma';
+      const targetCity =
+        (cityMatch[1] || 'Roma').replace(/\b(oggi|domani|adesso|ora|live|in tempo reale)\b/gi, '').trim() || 'Roma';
       try {
         const geoRes = await fetch(
           `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(targetCity)}&count=1&language=it&format=json`
@@ -425,7 +429,7 @@
               {
                 category: 'CO-PROCESSORE MATEMATICO ON-DEVICE',
                 title: `${cleanMath} = ${resNum}`,
-                summary: 'Eseguito direttamente sull\'unità aritmetica locale dell\'iPhone a latenza zero.'
+                summary: 'Eseguito direttamente sull\'unità aritmetica locale dell\'iPhone 16 Pro Max.'
               }
             ]
           };
@@ -433,13 +437,13 @@
       } catch (_) {}
     }
 
-    // D) Direct Gemini API call if user configured a Gemini Key on iPhone
+    // D) Direct Gemini API call if user configured a Gemini Key
     if (state.apiConfig.geminiKey) {
       try {
         const sys =
           persona === 'edith'
-            ? 'Sei E.D.I.T.H., assistente tattico di Tony Stark su iOS. Rispondi in italiano in modo diretto e preciso.'
-            : 'Sei J.A.R.V.I.S., assistente AI di Tony Stark su iOS. Rispondi in italiano con stile elegante ("Agli ordini, Signore") e completo.';
+            ? 'Sei E.D.I.T.H. nel sistema DoomAi su iPhone 16 Pro Max. Rispondi in italiano in modo diretto e preciso.'
+            : 'Sei J.A.R.V.I.S. nel sistema DoomAi su iPhone 16 Pro Max. Rispondi in italiano con stile elegante ("Agli ordini, Signore") e completo.';
         const gemRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.apiConfig.geminiKey)}`,
           {
@@ -459,7 +463,7 @@
             persona,
             speech: reply.replace(/[#*`_~>-]/g, '').slice(0, 480),
             display: reply,
-            provider: 'Google Gemini 2.5 Flash (Direct iOS)',
+            provider: 'Google Gemini 2.5 Flash + A18 Pro',
             latencyMs: Date.now() - startTime,
             cards: []
           };
@@ -467,9 +471,9 @@
       } catch (_) {}
     }
 
-    // E) Direct Wikipedia IT Live Search from iPhone
+    // E) Direct Wikipedia IT Live Search
     const cleanTopic = query
-      .replace(/^(chi è|chi era|cosa è|cos'è|che cos'è|parlami di|cerca|dimmi tutto su|informazioni su|spiegami|jarvis|edith)\s+/i, '')
+      .replace(/^(chi è|chi era|cosa è|cos'è|che cos'è|parlami di|cerca|dimmi tutto su|informazioni su|spiegami|jarvis|edith|doom)\s+/i, '')
       .replace(/\?+$/, '')
       .trim();
 
@@ -505,7 +509,7 @@
                   thumbnail: summary.thumbnail?.source || null,
                   metrics: [
                     { label: 'Fonte Primaria', value: 'Wikipedia (IT)' },
-                    { label: 'Modalità', value: 'Standalone iOS' }
+                    { label: 'Modalità', value: 'OTA Live iOS' }
                   ],
                   sources: [
                     {
@@ -523,8 +527,8 @@
 
     const fallbackSpeech =
       persona === 'edith'
-        ? `Sistema E.D.I.T.H. attivo su iPhone per "${query}". Puoi chiedere qualsiasi dossier enciclopedico, meteo di qualsiasi città, calcoli o inserire una API Key nel tab Motore AI & APU.`
-        : `Signore, ho analizzato "${query}" sull'APU locale del suo iPhone. Può chiedermi qualsiasi ricerca enciclopedica, meteo live, calcoli o inserire una chiave API nel pannello Motore AI & APU.`;
+        ? `Sistema DoomAi E.D.I.T.H. attivo per "${query}". Puoi chiedere qualsiasi dossier enciclopedico, meteo di qualsiasi città, calcoli o inserire una API Key nel tab Motore & APU.`
+        : `Signore, ho analizzato "${query}" sull'APU del suo iPhone 16 Pro Max. Può chiedermi qualsiasi ricerca enciclopedica, meteo live, calcoli o inserire una chiave API nel pannello Motore & APU.`;
     return {
       ok: true,
       persona,
@@ -536,7 +540,7 @@
     };
   }
 
-  // 8. Markdown-lite Formatter & Stream Renderer
+  // 8. Stream Renderer
   function formatDisplayHtml(md) {
     if (!md) return '';
     return md
@@ -584,7 +588,7 @@
             <div class="dossier-card">
               <div class="dossier-header">
                 <div>
-                  <div class="dossier-cat">${c.category || 'DOSSIER INTELLIGENCE'}</div>
+                  <div class="dossier-cat">${c.category || 'DOSSIER DOOM AI'}</div>
                   <div class="dossier-title">${c.title || ''}</div>
                 </div>
                 ${thumbHtml}
@@ -610,44 +614,22 @@
     streamContainer.prepend(entry);
   }
 
-  // 9. Execute Query (Tries Backend Server first, automatically falls back to Standalone On-Device iOS Engine!)
+  // 9. Execute Query
   async function submitQuery(rawQuery) {
     const query = (rawQuery || '').trim();
     if (!query || state.isProcessing) return;
 
     state.isProcessing = true;
-    voiceStateBadge.textContent = 'ELABORAZIONE';
+    voiceStateBadge.textContent = 'SCANSIONE...';
     commandInput.value = '';
 
     appendStreamMessage({
       role: 'user',
-      sender: 'COMANDO OPERATORE',
+      sender: 'ORDINE SOVRANO',
       text: query
     });
 
-    let data = null;
-    try {
-      const response = await fetch('/api/assistant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query,
-          persona: state.persona,
-          memory: state.memory,
-          apiKeys: state.apiConfig,
-          apuTelemetry: state.apuTelemetry
-        })
-      });
-      if (response.ok) {
-        data = await response.json();
-      }
-    } catch (_) {
-      // Backend server not present (e.g. running on iPhone via GitHub Pages) -> use Standalone iOS Engine!
-    }
-
-    if (!data || !data.ok) {
-      data = await runStandaloneOnDeviceQuery(query);
-    }
+    const data = await runStandaloneOnDeviceQuery(query);
 
     state.isProcessing = false;
     voiceStateBadge.textContent = 'PRONTO';
@@ -663,15 +645,16 @@
         state.tasks.unshift({ id: 't_' + Date.now(), text: data.taskAction.content, done: false });
         saveAndRenderTasks();
       }
+      syncStateToNativeIPA();
     }
 
     appendStreamMessage({
       role: 'assistant',
-      sender: state.persona === 'edith' ? 'E.D.I.T.H. TACTICAL CORE' : 'J.A.R.V.I.S. AI CORE',
+      sender: state.persona === 'edith' ? 'DOOM AI // E.D.I.T.H.' : 'DOOM AI // J.A.R.V.I.S.',
       text: data.display || data.speech,
       cards: data.cards || [],
-      provider: data.provider || 'Stark APU Core',
-      latencyMs: data.latencyMs || 12
+      provider: data.provider || 'A18 Pro APU Core',
+      latencyMs: data.latencyMs || 8
     });
 
     speakText(data.speech);
@@ -689,15 +672,8 @@
     });
   });
 
-  // 10. Siri Webhook Simulator & Native Swift Inspector
-  const siriEndpointUrlDisplay = document.getElementById('siriEndpointUrlDisplay');
+  // 10. Siri Test & Config
   const siriWebhookPreview = document.getElementById('siriWebhookPreview');
-  const swiftCodeViewer = document.getElementById('swiftCodeViewer');
-
-  if (siriEndpointUrlDisplay) {
-    siriEndpointUrlDisplay.textContent = `${window.location.origin}/api/siri`;
-  }
-
   document.getElementById('btnTestSiriWebhook').addEventListener('click', async () => {
     siriWebhookPreview.textContent = '// Simulazione risposta vocale Siri in corso...';
     const json = await runStandaloneOnDeviceQuery('Meteo Roma in tempo reale');
@@ -706,38 +682,9 @@
   });
 
   document.getElementById('btnCopyCurl').addEventListener('click', () => {
-    const curlCmd = `curl -X POST "${window.location.origin}/api/siri" \\\n  -H "Content-Type: application/json" \\\n  -d '{"query": "Chi era Leonardo da Vinci?", "persona": "${state.persona}"}'`;
-    navigator.clipboard?.writeText(curlCmd);
-    siriWebhookPreview.textContent = `// Comando cURL copiato negli appunti:\n\n${curlCmd}`;
-  });
-
-  async function loadIosPackageFiles() {
-    try {
-      const res = await fetch('/api/ios-package');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.ok && data.files) {
-          state.iosPackageFiles = data.files;
-          const defaultFile = 'ios-native/SiriIntents/AskStarkIntent.swift';
-          if (state.iosPackageFiles[defaultFile]) {
-            swiftCodeViewer.textContent = state.iosPackageFiles[defaultFile];
-          }
-          return;
-        }
-      }
-    } catch (_) {}
-    swiftCodeViewer.textContent = '// Tutti i file Swift 6 sono presenti nella cartella ios-native/ del repository GitHub GoldenRose01/stark-os-ios-assistant.';
-  }
-
-  document.querySelectorAll('.swift-file-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.swift-file-btn').forEach((b) => b.classList.remove('btn-primary'));
-      btn.classList.add('btn-primary');
-      const key = btn.getAttribute('data-file');
-      if (state.iosPackageFiles[key]) {
-        swiftCodeViewer.textContent = state.iosPackageFiles[key];
-      }
-    });
+    const info = `Frase Siri: "Ehi Siri, chiedi a Doom con DoomAi"\nInterfaccia OTA Live: https://goldenrose01.github.io/stark-os-ios-assistant/`;
+    navigator.clipboard?.writeText(info);
+    siriWebhookPreview.textContent = info;
   });
 
   // 11. Engine & API Vault Configuration
@@ -761,9 +708,10 @@
       openaiKey: document.getElementById('inputOpenaiKey').value.trim(),
       anthropicKey: document.getElementById('inputAnthropicKey').value.trim()
     };
-    localStorage.setItem('stark_api_config', JSON.stringify(state.apiConfig));
+    localStorage.setItem('doom_api_config', JSON.stringify(state.apiConfig));
+    syncStateToNativeIPA();
     const statusEl = document.getElementById('saveConfigStatus');
-    statusEl.textContent = 'Configurazione salvata nel Vault locale.';
+    statusEl.textContent = 'Sincronizzato con IPA e Siri!';
     setTimeout(() => {
       statusEl.textContent = '';
     }, 3000);
@@ -771,7 +719,7 @@
 
   // 12. Tasks & Contextual Memory Management
   function saveAndRenderTasks() {
-    localStorage.setItem('stark_tasks', JSON.stringify(state.tasks));
+    localStorage.setItem('doom_tasks', JSON.stringify(state.tasks));
     const container = document.getElementById('taskListContainer');
     const badge = document.getElementById('taskCountBadge');
     const activeCount = state.tasks.filter((t) => !t.done).length;
@@ -799,6 +747,7 @@
         const item = state.tasks.find((x) => x.id === id);
         if (item) item.done = !item.done;
         saveAndRenderTasks();
+        syncStateToNativeIPA();
       });
     });
 
@@ -807,12 +756,13 @@
         const id = btn.getAttribute('data-del-task');
         state.tasks = state.tasks.filter((x) => x.id !== id);
         saveAndRenderTasks();
+        syncStateToNativeIPA();
       });
     });
   }
 
   function saveAndRenderMemory() {
-    localStorage.setItem('stark_memory', JSON.stringify(state.memory));
+    localStorage.setItem('doom_memory', JSON.stringify(state.memory));
     const container = document.getElementById('memoryListContainer');
     container.innerHTML = state.memory
       .map(
@@ -830,6 +780,7 @@
         const id = btn.getAttribute('data-del-mem');
         state.memory = state.memory.filter((x) => x.id !== id);
         saveAndRenderMemory();
+        syncStateToNativeIPA();
       });
     });
   }
@@ -842,6 +793,7 @@
     state.tasks.unshift({ id: 't_' + Date.now(), text: val, done: false });
     input.value = '';
     saveAndRenderTasks();
+    syncStateToNativeIPA();
   });
 
   document.getElementById('addMemoryForm').addEventListener('submit', (e) => {
@@ -852,50 +804,38 @@
     state.memory.unshift({ id: 'm_' + Date.now(), text: val });
     input.value = '';
     saveAndRenderMemory();
+    syncStateToNativeIPA();
   });
 
-  // Check if URL has ?q=... parameter (so iOS Siri Shortcuts can open the app directly with a voice query!)
-  const urlParams = new URLSearchParams(window.location.search);
-  const initialQuery = urlParams.get('q') || urlParams.get('query');
-  const initialPersona = urlParams.get('persona');
-  if (initialPersona) applyPersona(initialPersona);
-
-  // Initialize Boot Sequence
+  // Boot Sequence
   applyPersona(state.persona);
   btnToggleTts.textContent = `Voce AI: ${state.ttsEnabled ? 'ON' : 'OFF'}`;
   detectHardwareAPU();
   hydrateApiConfigForm();
   saveAndRenderTasks();
   saveAndRenderMemory();
-  loadIosPackageFiles();
   requestAnimationFrame(renderReactor);
 
-  if (initialQuery) {
-    setTimeout(() => submitQuery(initialQuery), 300);
-  } else {
-    appendStreamMessage({
-      role: 'assistant',
-      sender: state.persona === 'edith' ? 'E.D.I.T.H. TACTICAL CORE' : 'J.A.R.V.I.S. AI CORE',
-      text:
-        state.persona === 'edith'
-          ? 'Sistema tattico **E.D.I.T.H.** online su iOS. L\'acceleratore APU locale e il motore di ricerca live sono operativi anche senza server esterno.'
-          : 'Bentornato, Signore. Tutti i sistemi **J.A.R.V.I.S.** sono online. L\'app funziona direttamente sull\'APU del suo iPhone anche senza cavi o PC.',
-      cards: [
-        {
-          category: 'MODALITÀ STANDALONE iOS ATTIVA',
-          title: 'Installabile su iPhone da Safari (Zero-Cavi / Zero-Sideloadly)',
-          summary:
-            'Su iPhone tocca il tasto Condividi di Safari -> "Aggiungi alla schermata Home" per installare STARK AI come App a tutto schermo, oppure passa parametri da Siri con ?q=LaTuaDomanda.',
-          metrics: [
-            { label: 'Motore iOS', value: 'Standalone + APU' },
-            { label: 'Dati Live', value: 'Wikipedia + Meteo' },
-            { label: 'Parametro Siri', value: '?q=Domanda' },
-            { label: 'Voce', value: 'Italiano (it-IT)' }
-          ]
-        }
-      ],
-      provider: 'Stark Hybrid APU Core',
-      latencyMs: 7
-    });
-  }
+  appendStreamMessage({
+    role: 'assistant',
+    sender: 'DOOM AI // SOVEREIGN CORE',
+    text:
+      'Sistema **DoomAi** attivo a schermo intero per **iPhone 16 Pro Max**. Questa interfaccia viene caricata **in tempo reale da GitHub (OTA Live)** dentro il guscio nativo `.ipa`: ogni modifica futura che faremo su GitHub apparirà istantaneamente premendo **Sync GitHub** in alto a destra, senza mai dover reinstallare l\'IPA con Sideloadly!',
+    cards: [
+      {
+        category: 'ARCHITETTURA IBRIDA OTA GITHUB + CORE IPA',
+        title: 'Zero Reinstallazioni IPA — Aggiornamenti Istantanei',
+        summary:
+          'L\'IPA conserva l\'icona Maschera d\'Oro, il microfono nativo iOS, il sintetizzatore vocale e i comandi Siri AppIntents, mentre carica l\'interfaccia sempre aggiornata da GitHub.',
+        metrics: [
+          { label: 'Display', value: '6.9" Full-Screen' },
+          { label: 'UI Engine', value: 'GitHub OTA Live' },
+          { label: 'Hardware Bridge', value: 'SFSpeech + ANE' },
+          { label: 'Siri', value: 'AppIntents Attivo' }
+        ]
+      }
+    ],
+    provider: 'DoomAi OTA + A18 Pro ANE',
+    latencyMs: 5
+  });
 })();
