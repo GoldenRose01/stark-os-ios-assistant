@@ -4,7 +4,7 @@ import AppIntents
 import AVFoundation
 import Speech
 
-// MARK: - 1. Riconoscimento Vocale Nativo iOS (SFSpeechRecognizer + AVAudioEngine — Supporta Offline On-Device)
+// MARK: - 1. Riconoscimento Vocale Nativo iOS (SFSpeechRecognizer + AVAudioEngine)
 @MainActor
 final class StarkSpeechRecognizer: ObservableObject {
     @Published var isRecording = false
@@ -112,6 +112,7 @@ final class StarkSpeechRecognizer: ObservableObject {
 struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
     @ObservedObject var engine: HybridAPUEngine
     @ObservedObject var speechRec: StarkSpeechRecognizer
+    @Binding var showNativeOfflineFallback: Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -134,7 +135,6 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.bounces = true
 
-        // Pull-to-refresh nativo per scaricare gli aggiornamenti da GitHub e salvarli nella Flash Offline
         let refreshControl = UIRefreshControl()
         refreshControl.tintColor = UIColor(red: 0.94, green: 0.76, blue: 0.22, alpha: 1.0)
         refreshControl.addTarget(context.coordinator, action: #selector(Coordinator.handlePullToRefresh(_:)), for: .valueChanged)
@@ -155,13 +155,12 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
         weak var webView: WKWebView?
         private let synthesizer = AVSpeechSynthesizer()
         private let githubRawBase = "https://raw.githubusercontent.com/GoldenRose01/stark-os-ios-assistant/main/docs"
-        private let otaFiles = ["index.html", "index.css", "app.js", "manifest.json"]
+        private let otaFiles = ["index.html", "index.css", "app.js", "doom-mask.png", "manifest.json"]
 
         init(parent: DoomHybridOfflineOTAWebView) {
             self.parent = parent
         }
 
-        // Restituisce la cartella persistente Documents/DoomOTA/ nella memoria Flash dell'iPhone
         private func getLocalOTADirectory() -> URL {
             let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             let otaDir = docs.appendingPathComponent("DoomOTA", isDirectory: true)
@@ -171,51 +170,44 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
             return otaDir
         }
 
-        // Inizializza la memoria Flash Offline copiando i file da OfflineUI/ dentro il bundle dell'IPA
-        private func ensureOfflineFlashSeeded() {
-            let otaDir = getLocalOTADirectory()
-            let fm = FileManager.default
-            guard let bundleOfflineDir = Bundle.main.resourceURL?.appendingPathComponent("OfflineUI") else { return }
-
-            for fileName in ["index.html", "index.css", "app.js", "doom-mask.png", "manifest.json"] {
-                let destURL = otaDir.appendingPathComponent(fileName)
-                let srcURL = bundleOfflineDir.appendingPathComponent(fileName)
-                if !fm.fileExists(atPath: destURL.path), fm.fileExists(atPath: srcURL.path) {
-                    try? fm.copyItem(at: srcURL, to: destURL)
-                }
-            }
+        func hasCachedOfflineFiles() -> Bool {
+            let indexURL = getLocalOTADirectory().appendingPathComponent("index.html")
+            return FileManager.default.fileExists(atPath: indexURL.path)
         }
 
-        // Carica l'interfaccia istantaneamente dalla memoria Flash interna dell'iPhone (100% Offline Ready)
         func loadFromLocalFlash() {
-            ensureOfflineFlashSeeded()
             let otaDir = getLocalOTADirectory()
             let indexURL = otaDir.appendingPathComponent("index.html")
             if FileManager.default.fileExists(atPath: indexURL.path) {
                 webView?.loadFileURL(indexURL, allowingReadAccessTo: otaDir)
-            } else if let bundleIndex = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "OfflineUI"),
-                      let bundleDir = Bundle.main.resourceURL?.appendingPathComponent("OfflineUI") {
-                webView?.loadFileURL(bundleIndex, allowingReadAccessTo: bundleDir)
             }
         }
 
-        // Avvio Ibrido: 1) Apre subito l'interfaccia Offline dalla Flash in 0.05s, 2) Se c'è rete sincronizza in background da GitHub
         func bootOfflineAndSyncGitHub() {
-            loadFromLocalFlash()
-            Task {
-                await syncLatestFromGitHub(forceReload: false)
+            if hasCachedOfflineFiles() {
+                loadFromLocalFlash()
+                Task {
+                    await syncLatestFromGitHub(forceReload: false)
+                }
+            } else {
+                Task {
+                    let ok = await syncLatestFromGitHub(forceReload: true)
+                    if !ok && !hasCachedOfflineFiles() {
+                        parent.showNativeOfflineFallback = true
+                    }
+                }
             }
         }
 
-        // Scarica gli ultimi file da GitHub e li salva permanentemente nella memoria Flash Offline dell'iPhone
-        func syncLatestFromGitHub(forceReload: Bool) async {
-            ensureOfflineFlashSeeded()
+        @discardableResult
+        func syncLatestFromGitHub(forceReload: Bool) async -> Bool {
             let otaDir = getLocalOTADirectory()
             let ts = Int(Date().timeIntervalSince1970)
             var updatedAnyFile = false
+            var successCount = 0
 
             let config = URLSessionConfiguration.ephemeral
-            config.timeoutIntervalForRequest = 7
+            config.timeoutIntervalForRequest = 8
             let session = URLSession(configuration: config)
 
             for fileName in otaFiles {
@@ -225,6 +217,7 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
                     guard let httpResp = response as? HTTPURLResponse, httpResp.statusCode == 200, !data.isEmpty else {
                         continue
                     }
+                    successCount += 1
                     let localURL = otaDir.appendingPathComponent(fileName)
                     let existingData = try? Data(contentsOf: localURL)
                     if existingData != data {
@@ -232,15 +225,16 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
                         updatedAnyFile = true
                     }
                 } catch {
-                    // Se siamo offline, mantiene intatti i file già salvati nella memoria Flash!
+                    continue
                 }
             }
 
-            if updatedAnyFile || forceReload {
+            if (updatedAnyFile || forceReload) && hasCachedOfflineFiles() {
                 loadFromLocalFlash()
                 try? await Task.sleep(nanoseconds: 400_000_000)
                 sendEventToJS(["type": "otaStatus", "message": updatedAnyFile ? "Aggiornato da GitHub!" : "Già all'ultima versione"])
             }
+            return successCount > 0
         }
 
         @objc func handlePullToRefresh(_ sender: UIRefreshControl) {
@@ -316,21 +310,98 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
     }
 }
 
-// MARK: - 3. Vista Principale Full-Screen 6.9" per iPhone 16 Pro Max (Online OTA + 100% Offline Flash)
+// MARK: - 3. Vista Principale Full-Screen 6.9" per iPhone 16 Pro Max (Online OTA + 100% Offline Flash & Native HUD)
 @available(iOS 16.0, *)
 struct StarkHUDView: View {
     @StateObject private var engine = HybridAPUEngine.shared
     @StateObject private var speechRec = StarkSpeechRecognizer()
+    @State private var showNativeOfflineFallback = false
+    @State private var offlineQueryText = ""
+    @State private var offlineHistory: [StarkAssistantResponse] = []
+    private let synthesizer = AVSpeechSynthesizer()
+
+    var primaryAccent: Color {
+        Color(red: 0.94, green: 0.76, blue: 0.22)
+    }
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea(.all)
 
-            DoomHybridOfflineOTAWebView(
-                engine: engine,
-                speechRec: speechRec
-            )
-            .ignoresSafeArea(.all)
+            if !showNativeOfflineFallback {
+                DoomHybridOfflineOTAWebView(
+                    engine: engine,
+                    speechRec: speechRec,
+                    showNativeOfflineFallback: $showNativeOfflineFallback
+                )
+                .ignoresSafeArea(.all)
+            } else {
+                // Console Nativa SwiftUI Offline (se il primo avvio assoluto avviene senza rete)
+                VStack(spacing: 14) {
+                    HStack {
+                        Image("DoomMaskLogo")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 42, height: 42)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        VStack(alignment: .leading) {
+                            Text("DOOM AI // OFFLINE APU")
+                                .font(.system(size: 17, weight: .bold, design: .monospaced))
+                                .foregroundStyle(primaryAccent)
+                            Text("A18 PRO NEURAL ENGINE ATTIVO")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Sync GitHub") {
+                            showNativeOfflineFallback = false
+                        }
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(primaryAccent.opacity(0.2))
+                        .foregroundStyle(primaryAccent)
+                        .clipShape(Capsule())
+                    }
+                    .padding(.horizontal)
+
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            ForEach(Array(offlineHistory.enumerated()), id: \.offset) { _, resp in
+                                StarkSiriSnippetView(response: resp)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    HStack(spacing: 10) {
+                        TextField("Ordina a DoomAi Offline (calcoli, task)...", text: $offlineQueryText)
+                            .textFieldStyle(.plain)
+                            .padding(12)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .foregroundStyle(.white)
+
+                        Button {
+                            let q = offlineQueryText
+                            offlineQueryText = ""
+                            Task {
+                                let res = await engine.executeHybridQuery(query: q)
+                                offlineHistory.insert(res, at: 0)
+                                let utt = AVSpeechUtterance(string: res.speech)
+                                utt.voice = AVSpeechSynthesisVoice(language: "it-IT")
+                                synthesizer.speak(utt)
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.system(size: 34))
+                                .foregroundStyle(primaryAccent)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
+                }
+            }
         }
         .preferredColorScheme(.dark)
     }

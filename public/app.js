@@ -432,40 +432,69 @@
       };
     }
 
-    // C) Local APU Math Co-Processor & Unit Conversions (100% Offline Ready)
+    // C) Local APU Math Co-Processor & Unit Conversions (100% Offline Ready, Zero eval/Function)
     const cleanMath = query
       .toLowerCase()
       .replace(/quanto fa|calcola|risolvi|\?/g, ' ')
       .replace(/,/g, '.')
       .replace(/×|x(?=\s*\d)/g, '*')
       .replace(/÷/g, '/')
-      .replace(/radice quadrata di\s*(\d+(\.\d+)?)/g, 'Math.sqrt($1)')
       .trim();
-    if (/^[0-9+\-*/().\sMathsqrt]+$/.test(cleanMath) && (/[+\-*/]/.test(cleanMath) || cleanMath.includes('Math.sqrt'))) {
+    if (/^[0-9+\-*/().\s]+$/.test(cleanMath) && /[+\-*/]/.test(cleanMath)) {
       try {
-        const val = Function(`"use strict"; return (${cleanMath});`)();
-        if (typeof val === 'number' && Number.isFinite(val)) {
-          const resNum = Number(val.toFixed(6));
-          const displayExpr = cleanMath.replace(/Math\.sqrt/g, '√');
-          const speech =
-            persona === 'edith'
-              ? `Calcolo APU completato: ${displayExpr} equivale a ${resNum}.`
-              : `Il risultato del calcolo ${displayExpr} è esattamente ${resNum}, Signore.`;
-          return {
-            ok: true,
-            persona,
-            speech,
-            display: `### Calcolo Computazionale APU (Offline)\n\n\`${displayExpr} = ${resNum}\``,
-            provider: `${state.apuTelemetry.engine} (Offline Co-Processor)`,
-            latencyMs: 2,
-            cards: [
-              {
-                category: 'CO-PROCESSORE MATEMATICO ON-DEVICE',
-                title: `${displayExpr} = ${resNum}`,
-                summary: 'Eseguito direttamente sull\'unità aritmetica locale dell\'iPhone 16 Pro Max (0 rete).'
-              }
-            ]
+        const tokens = cleanMath.match(/\d+(?:\.\d+)?|[+\-*/()]/g);
+        if (tokens && tokens.length >= 3) {
+          let pos = 0;
+          const parseExpr = () => {
+            let left = parseTerm();
+            while (pos < tokens.length && (tokens[pos] === '+' || tokens[pos] === '-')) {
+              const op = tokens[pos++];
+              const right = parseTerm();
+              left = op === '+' ? left + right : left - right;
+            }
+            return left;
           };
+          const parseTerm = () => {
+            let left = parseFactor();
+            while (pos < tokens.length && (tokens[pos] === '*' || tokens[pos] === '/')) {
+              const op = tokens[pos++];
+              const right = parseFactor();
+              left = op === '*' ? left * right : left / right;
+            }
+            return left;
+          };
+          const parseFactor = () => {
+            if (tokens[pos] === '(') {
+              pos++;
+              const val = parseExpr();
+              if (tokens[pos] === ')') pos++;
+              return val;
+            }
+            return parseFloat(tokens[pos++]);
+          };
+          const val = parseExpr();
+          if (typeof val === 'number' && Number.isFinite(val)) {
+            const resNum = Number(val.toFixed(6));
+            const speech =
+              persona === 'edith'
+                ? `Calcolo APU completato: ${cleanMath} equivale a ${resNum}.`
+                : `Il risultato del calcolo ${cleanMath} è esattamente ${resNum}, Signore.`;
+            return {
+              ok: true,
+              persona,
+              speech,
+              display: `### Calcolo Computazionale APU (Offline)\n\n\`${cleanMath} = ${resNum}\``,
+              provider: `${state.apuTelemetry.engine} (Offline Co-Processor)`,
+              latencyMs: 2,
+              cards: [
+                {
+                  category: 'CO-PROCESSORE MATEMATICO ON-DEVICE',
+                  title: `${cleanMath} = ${resNum}`,
+                  summary: 'Eseguito direttamente sull\'unità aritmetica locale dell\'iPhone 16 Pro Max (0 rete).'
+                }
+              ]
+            };
+          }
         }
       } catch (_) {}
     }

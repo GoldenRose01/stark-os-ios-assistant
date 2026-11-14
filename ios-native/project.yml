@@ -14,8 +14,6 @@ targets:
       - path: Engine
       - path: UI
       - path: Assets.xcassets
-      - path: OfflineUI
-        type: folder
     info:
       path: Info.plist
     settings:
