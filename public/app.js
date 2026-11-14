@@ -86,6 +86,32 @@
     return false;
   }
 
+  // Dynamic Viewport Calibration Engine (Adapts placeholders to any iPhone / iPad / Desktop screen)
+  function calibrateDynamicViewport() {
+    const vv = window.visualViewport;
+    const vw = Math.round(vv ? vv.width : window.innerWidth || document.documentElement.clientWidth || 430);
+    const vh = Math.round(vv ? vv.height : window.innerHeight || document.documentElement.clientHeight || 932);
+    const reactorPx = Math.max(132, Math.min(176, Math.round(vw * 0.38)));
+    const maskPx = Math.round(reactorPx * 0.54);
+
+    const root = document.documentElement;
+    root.style.setProperty('--vw-px', `${vw}px`);
+    root.style.setProperty('--vh-px', `${vh}px`);
+    root.style.setProperty('--reactor-size', `${reactorPx}px`);
+    root.style.setProperty('--mask-size', `${maskPx}px`);
+
+    if (window.scrollX !== 0) {
+      window.scrollTo(0, window.scrollY);
+    }
+  }
+
+  window.addEventListener('resize', calibrateDynamicViewport);
+  window.addEventListener('orientationchange', () => setTimeout(calibrateDynamicViewport, 120));
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', calibrateDynamicViewport);
+  }
+  calibrateDynamicViewport();
+
   // Update Online / Offline Telemetry Indicator
   function updateConnectivityBadge() {
     state.isOnline = navigator.onLine !== false;
