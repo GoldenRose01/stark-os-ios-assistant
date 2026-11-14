@@ -73,7 +73,7 @@ struct StarkShortcutsProvider: AppShortcutsProvider {
     }
 }
 
-// MARK: - 4. Snippet HUD Visualizzato direttamente dentro l'interfaccia di Siri
+// MARK: - 4. Snippet HUD Visualizzato in Siri e nella Console Nativa iOS
 @available(iOS 16.0, *)
 struct StarkSiriSnippetView: View {
     let response: StarkAssistantResponse
@@ -91,8 +91,9 @@ struct StarkSiriSnippetView: View {
                     .fill(accentColor)
                     .frame(width: 8, height: 8)
                 Text(response.persona.uppercased() + " // " + response.provider.uppercased())
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundStyle(accentColor)
+                    .lineLimit(1)
                 Spacer()
                 Text("\(response.latencyMs) ms")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
@@ -101,25 +102,43 @@ struct StarkSiriSnippetView: View {
 
             Text(response.speech)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.primary)
-                .lineLimit(5)
+                .foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
 
             if let firstCard = response.cards.first {
-                Divider()
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(firstCard.category)
-                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                        Text(firstCard.title)
-                            .font(.system(size: 12, weight: .bold))
+                Divider().overlay(Color.white.opacity(0.15))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(firstCard.category)
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(accentColor)
+                    Text(firstCard.title)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white)
+
+                    if let metrics = firstCard.metrics, !metrics.isEmpty {
+                        HStack(spacing: 12) {
+                            ForEach(metrics, id: \.self) { m in
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(m.label.uppercased())
+                                        .font(.system(size: 8, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                    Text(m.value)
+                                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                        }
+                        .padding(.top, 2)
                     }
-                    Spacer()
                 }
             }
         }
         .padding(14)
-        .background(Color.black.opacity(0.88))
+        .background(Color(red: 0.06, green: 0.09, blue: 0.15))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(accentColor.opacity(0.35), lineWidth: 1)
+        )
     }
 }
