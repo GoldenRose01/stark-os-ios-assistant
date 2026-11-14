@@ -1,0 +1,13 @@
+{
+  "name": "stark-os-assistant",
+  "version": "2.5.0",
+  "description": "J.A.R.V.I.S. & E.D.I.T.H. All-in-One AI Assistant connected to iOS Siri & On-Device APU",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

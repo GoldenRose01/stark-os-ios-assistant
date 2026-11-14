@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>STARK OS — J.A.R.V.I.S. &amp; E.D.I.T.H. AI Assistant (iOS Siri &amp; APU Bridge)</title>
+  <meta name="description" content="Assistente AI All-in-One ispirato a J.A.R.V.I.S. ed E.D.I.T.H., connesso a Siri su iOS tramite Comandi Rapidi e AppIntents nativi, con accelerazione APU/Neural Engine e ricerca universale." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="STARK AI" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/index.css" />
+</head>
+<body data-persona="jarvis">
+  <div class="app-shell">
+    <!-- Top Command Bar -->
+    <header class="top-bar">
+      <div class="brand-cluster">
+        <div class="brand-mark" id="brandBadge">MK7</div>
+        <div class="brand-titles">
+          <h1 id="systemHeaderTitle">J.A.R.V.I.S. // STARK OS OMNI-ASSISTANT</h1>
+          <div class="brand-subtitle" id="systemHeaderSub">PROTOCOLLO VOCALE iOS SIRI + ACCELERAZIONE APU LOCALE &amp; MULTI-API</div>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <nav class="nav-tabs" aria-label="Moduli Sistema">
+          <button type="button" class="nav-tab active" id="tab-hud" data-target="view-hud">Console &amp; Ricerca</button>
+          <button type="button" class="nav-tab" id="tab-siri" data-target="view-siri">Siri &amp; iOS Nativo</button>
+          <button type="button" class="nav-tab" id="tab-engine" data-target="view-engine">Motore AI &amp; APU</button>
+          <button type="button" class="nav-tab" id="tab-memory" data-target="view-memory">Task &amp; Memoria</button>
+        </nav>
+
+        <div class="persona-switcher" role="group" aria-label="Selettore Protocollo">
+          <button type="button" class="persona-btn active" id="btnPersonaJarvis" data-persona="jarvis">J.A.R.V.I.S.</button>
+          <button type="button" class="persona-btn" id="btnPersonaEdith" data-persona="edith">E.D.I.T.H.</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Live Hardware & Siri Bridge Telemetry Strip -->
+    <section class="telemetry-strip" aria-label="Telemetria Sistema">
+      <div class="telemetry-cell">
+        <span class="telemetry-label">Acceleratore APU / NPU</span>
+        <span class="telemetry-val"><span class="status-dot"></span><span id="telemetryApu">Rilevamento...</span></span>
+      </div>
+      <div class="telemetry-cell">
+        <span class="telemetry-label">Endpoint Siri iOS</span>
+        <span class="telemetry-val"><span class="status-dot"></span><span id="telemetrySiri">POST /api/siri ATTIVO</span></span>
+      </div>
+      <div class="telemetry-cell">
+        <span class="telemetry-label">Motore Cognitivo</span>
+        <span class="telemetry-val" id="telemetryProvider">APU Hybrid + Live RAG</span>
+      </div>
+      <div class="telemetry-cell">
+        <span class="telemetry-label">Latenza Ultima Scansione</span>
+        <span class="telemetry-val" id="telemetryLatency">12 ms</span>
+      </div>
+    </section>
+
+    <!-- VIEW 1: HUD CONSOLE & OMNISEARCH -->
+    <main class="workspace-view active" id="view-hud">
+      <div class="hud-grid">
+        <!-- Left Column: Voice Reactor & Tactical Shortcuts -->
+        <aside class="panel">
+          <div class="panel-header">
+            <span class="panel-title" id="reactorPanelTitle">Nucleo Vocale J.A.R.V.I.S.</span>
+            <span class="panel-badge" id="voiceStateBadge">PRONTO</span>
+          </div>
+
+          <div class="reactor-stage">
+            <canvas id="reactorCanvas" width="440" height="440" title="Clicca per attivare o fermare l'ascolto vocale"></canvas>
+            <p class="voice-status-text" id="voiceStatusText">Tocca il reattore o premi "Ascolto Vocale" per parlare in italiano.</p>
+
+            <div class="voice-controls">
+              <button type="button" class="btn btn-primary" id="btnToggleMic">Ascolto Vocale</button>
+              <button type="button" class="btn" id="btnToggleTts">Voce AI: ON</button>
+            </div>
+          </div>
+
+          <div class="panel-header" style="margin-top: 10px;">
+            <span class="panel-title">Scansioni Rapide Omnicanale</span>
+          </div>
+          <div class="preset-list" id="presetContainer">
+            <button type="button" class="preset-chip" data-query="Come funziona il ponte con Siri e l'APU su iOS?">Ponte Siri &amp; APU</button>
+            <button type="button" class="preset-chip" data-query="Meteo Roma in tempo reale">Meteo Roma Live</button>
+            <button type="button" class="preset-chip" data-query="Meteo Milano">Meteo Milano</button>
+            <button type="button" class="preset-chip" data-query="Chi era Nikola Tesla">Dossier Nikola Tesla</button>
+            <button type="button" class="preset-chip" data-query="Cos'è un buco nero">Astrofisica: Buchi Neri</button>
+            <button type="button" class="preset-chip" data-query="Calcola (1450 * 18.5) + 3200">Calcolo Co-Processore</button>
+            <button type="button" class="preset-chip" data-query="Ricordami di testare il comando vocale Ehi Siri alle 18:00">+ Promemoria Tattico</button>
+          </div>
+        </aside>
+
+        <!-- Right Column: Command Bar & Intelligence Stream -->
+        <section class="console-column">
+          <form class="command-bar" id="commandForm">
+            <input
+              type="text"
+              id="commandInput"
+              class="command-input"
+              placeholder="Chiedi qualsiasi cosa a J.A.R.V.I.S. (ricerche web, dossier, meteo, calcoli, task o comandi Siri)..."
+              autocomplete="off"
+            />
+            <button type="submit" class="btn btn-primary" id="btnSendCommand">Esegui Scansione</button>
+          </form>
+
+          <div class="stream-container" id="streamContainer" aria-live="polite"></div>
+        </section>
+      </div>
+    </main>
+
+    <!-- VIEW 2: SIRI SHORTCUTS & NATIVE SWIFT APPINTENTS -->
+    <section class="workspace-view" id="view-siri">
+      <div class="module-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">1. Configurazione "Ehi Siri" (Comandi Rapidi iOS)</span>
+            <span class="panel-badge">PRONTO ALL'USO</span>
+          </div>
+          <p style="color: var(--text-secondary); font-size: 13.5px; margin-bottom: 14px;">
+            Collega l'app a Siri in 60 secondi tramite l'app nativa <strong>Comandi Rapidi (Shortcuts)</strong> di iPhone, iPad o Apple Watch, oppure simula una chiamata Siri in tempo reale qui sotto.
+          </p>
+
+          <div class="step-list">
+            <div class="step-item">
+              <div class="step-num">1</div>
+              <div>
+                <strong>Apri Comandi Rapidi su iOS e crea "Chiedi a Jarvis"</strong>
+                <p style="color: var(--text-secondary); font-size: 12.5px;">Il nome del Comando Rapido diventa automaticamente la frase vocale per <em>"Ehi Siri, chiedi a Jarvis"</em> (oppure <em>"Protocollo Edith"</em>).</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">2</div>
+              <div>
+                <strong>Aggiungi azione "Chiedi input" (Testo)</strong>
+                <p style="color: var(--text-secondary); font-size: 12.5px;">Messaggio: <code>Agli ordini, Signore. Quale ricerca devo eseguire?</code></p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">3</div>
+              <div>
+                <strong>Aggiungi "Ottieni contenuti da URL" (Metodo POST JSON)</strong>
+                <p style="color: var(--text-secondary); font-size: 12.5px;">Endpoint: <code id="siriEndpointUrlDisplay">http://localhost:3000/api/siri</code> con corpo JSON <code>{"query": "[Input fornito]", "persona": "jarvis"}</code>.</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">4</div>
+              <div>
+                <strong>Aggiungi "Ottieni valore dizionario" &rarr; "Leggi testo"</strong>
+                <p style="color: var(--text-secondary); font-size: 12.5px;">Estrai la chiave <code>speech</code> e passala all'azione <strong>Mostra risultato</strong> e <strong>Leggi testo ad alta voce</strong>.</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px;">
+            <button type="button" class="btn btn-primary" id="btnTestSiriWebhook">Simula Chiamata Vocale Siri (/api/siri)</button>
+            <button type="button" class="btn" id="btnCopyCurl">Copia Comando cURL / JSON</button>
+          </div>
+
+          <pre class="code-viewer" id="siriWebhookPreview" style="margin-top: 14px;">// Premi "Simula Chiamata Vocale Siri" per ispezionare il payload JSON reale restituito a Siri...</pre>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">2. Codice Nativo iOS Swift 6 (AppIntents + CoreML APU)</span>
+            <span class="panel-badge">XCODE READY</span>
+          </div>
+          <p style="color: var(--text-secondary); font-size: 13.5px; margin-bottom: 12px;">
+            Se desideri compilare l'app nativa iOS su Xcode, trovi qui i moduli completi con <code>AppShortcutsProvider</code> (registrazione automatica in Siri senza configurazione manuale) e <code>HybridAPUEngine</code> (pre-processing sul Neural Engine a 16-core dell'iPhone).
+          </p>
+
+          <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-primary swift-file-btn" data-file="ios-native/SiriIntents/AskStarkIntent.swift">AskStarkIntent.swift</button>
+            <button type="button" class="btn swift-file-btn" data-file="ios-native/Engine/HybridAPUEngine.swift">HybridAPUEngine.swift</button>
+            <button type="button" class="btn swift-file-btn" data-file="ios-native/UI/StarkHUDView.swift">StarkHUDView.swift</button>
+            <button type="button" class="btn swift-file-btn" data-file="shortcuts/Stark_Siri_Shortcut_Blueprint.json">Shortcut Blueprint JSON</button>
+          </div>
+
+          <pre class="code-viewer" id="swiftCodeViewer">Caricamento moduli nativi iOS...</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: AI ENGINE, ON-DEVICE APU & MULTI-API VAULT -->
+    <section class="workspace-view" id="view-engine">
+      <div class="module-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Telemetria APU / Neural Engine &amp; Strategia di Routing</span>
+            <span class="panel-badge" id="apuHardwareBadge">HARDWARE ATTIVO</span>
+          </div>
+
+          <div class="dossier-card" style="margin-bottom: 16px;">
+            <span class="dossier-cat">DIAGNOSTICA ACCELERATORE DISPOSITIVO</span>
+            <div class="dossier-title" id="apuDeviceSummary">Scansione unità computazionale in corso...</div>
+            <div class="metrics-row">
+              <div class="metric-item">
+                <span>WebGPU / Metal</span>
+                <span id="metricWebGpu">Verifica...</span>
+              </div>
+              <div class="metric-item">
+                <span>Logical Threads</span>
+                <span id="metricCores">8 Core</span>
+              </div>
+              <div class="metric-item">
+                <span>Pre-Filter Intent</span>
+                <span>On-Device (0 ms)</span>
+              </div>
+              <div class="metric-item">
+                <span>Modalità Ibrida</span>
+                <span id="metricRoutingMode">APU + Cloud RAG</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="selectRoutingMode">Strategia di Esecuzione AI</label>
+            <select id="selectRoutingMode" class="form-select">
+              <option value="hybrid">Ibrida Automatica (Pre-analisi APU Locale + Live RAG + API Cloud/Custom)</option>
+              <option value="local_first">Priorità APU &amp; Custom Backend Locale (Ollama / vLLM / CoreML)</option>
+              <option value="deep_cloud">Deep Cloud Research (Perplexity / Gemini / OpenAI + Citazioni Live)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="inputCustomEndpoint">Endpoint Backend Custom / Local LLM (es. Ollama / vLLM / Proxy)</label>
+            <input type="text" id="inputCustomEndpoint" class="form-input" placeholder="es. http://localhost:11434/v1/chat/completions" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="inputCustomModel">Nome Modello Custom / Locale</label>
+            <input type="text" id="inputCustomModel" class="form-input" placeholder="es. llama3.2, qwen2.5, deepseek-r1" value="llama3.2" />
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Vault Chiavi API Multi-Servizio</span>
+            <span class="panel-badge">CRITTOGRAFIA LOCALE</span>
+          </div>
+          <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 14px;">
+            Le chiavi vengono salvate localmente sul tuo dispositivo e passate al router ibrido per potenziare J.A.R.V.I.S. ed E.D.I.T.H. Anche senza chiavi, il motore integrato esegue ricerche live su Wikipedia, Open-Meteo e calcoli sul co-processore locale.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label" for="inputGeminiKey">Google Gemini API Key (gemini-2.5-flash)</label>
+            <input type="password" id="inputGeminiKey" class="form-input" placeholder="AIzaSy..." />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="inputPerplexityKey">Perplexity Sonar API Key (Ricerca Web Deep con Citazioni)</label>
+            <input type="password" id="inputPerplexityKey" class="form-input" placeholder="pplx-..." />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="inputOpenaiKey">OpenAI API Key (GPT-4o)</label>
+            <input type="password" id="inputOpenaiKey" class="form-input" placeholder="sk-..." />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="inputAnthropicKey">Anthropic Claude API Key (Claude 3.5 Sonnet)</label>
+            <input type="password" id="inputAnthropicKey" class="form-input" placeholder="sk-ant-..." />
+          </div>
+
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <button type="button" class="btn btn-primary" id="btnSaveApiConfig">Salva Configurazione Motore</button>
+            <span id="saveConfigStatus" style="font-family: var(--font-mono); font-size: 12px; color: var(--status-online);"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: CONTESTUAL MEMORY & TACTICAL TASKS -->
+    <section class="workspace-view" id="view-memory">
+      <div class="module-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Task Operativi &amp; Promemoria Vocali</span>
+            <span class="panel-badge" id="taskCountBadge">0 ATTIVI</span>
+          </div>
+          <form id="addTaskForm" style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <input type="text" id="newTaskInput" class="form-input" style="flex: 1;" placeholder="Nuovo task o promemoria operativo..." />
+            <button type="submit" class="btn btn-primary">Aggiungi</button>
+          </form>
+          <div class="task-list" id="taskListContainer"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Memoria Contestuale Persistente (Stark Graph)</span>
+            <span class="panel-badge">ATTIVA NELLE RICERCHE</span>
+          </div>
+          <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 12px;">
+            Ogni direttiva o preferenza salvata qui viene iniettata automaticamente nel contesto di J.A.R.V.I.S., E.D.I.T.H. e nelle risposte vocali di Siri.
+          </p>
+          <form id="addMemoryForm" style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <input type="text" id="newMemoryInput" class="form-input" style="flex: 1;" placeholder="Es. Vivo a Milano e mi occupo di ingegneria aerospaziale..." />
+            <button type="submit" class="btn btn-primary">Memorizza</button>
+          </form>
+          <div class="task-list" id="memoryListContainer"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

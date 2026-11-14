@@ -1,0 +1,52 @@
+name: Build Native iOS App (.ipa) for Windows Sideload
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-ios-ipa:
+    name: Compila StarkOS.ipa su Cloud macOS (Zero-Mac)
+    runs-on: macos-14
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+
+      - name: Genera Progetto Xcode (.xcodeproj)
+        working-directory: ios-native
+        run: xcodegen generate
+
+      - name: Compila App Nativa iOS (Unsigned per Sideloadly / AltStore su Windows)
+        working-directory: ios-native
+        run: |
+          xcodebuild clean build \
+            -project StarkOS.xcodeproj \
+            -scheme StarkOS \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Crea Pacchetto Installabile StarkOS-iOS.ipa
+        working-directory: ios-native
+        run: |
+          mkdir -p Payload
+          cp -r build/Build/Products/Release-iphoneos/StarkOS.app Payload/
+          zip -r9 StarkOS-iOS.ipa Payload
+
+      - name: Carica Artifact StarkOS-iOS.ipa (Scaricabile su Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: StarkOS-iOS-IPA
+          path: ios-native/StarkOS-iOS.ipa
+          retention-days: 30

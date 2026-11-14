@@ -1,0 +1,59 @@
+{
+  "shortcutName": "Chiedi a Jarvis",
+  "siriWakePhrases": [
+    "Ehi Siri, chiedi a Jarvis",
+    "Ehi Siri, protocollo Edith",
+    "Ehi Siri, attiva Stark"
+  ],
+  "version": "2.5.0",
+  "iosCompatibility": "iOS 16.0 - iOS 18+",
+  "workflowActions": [
+    {
+      "step": 1,
+      "action": "is.workflow.actions.ask",
+      "label": "Chiedi Input Vocale",
+      "parameters": {
+        "WFAskActionPrompt": "Agli ordini, Signore. Quale ricerca o operazione devo eseguire?",
+        "WFInputType": "Text"
+      }
+    },
+    {
+      "step": 2,
+      "action": "is.workflow.actions.downloadurl",
+      "label": "Ottieni Contenuti da URL (Backend Stark /api/siri)",
+      "parameters": {
+        "WFURL": "https://TUO-DOMINIO-O-IP-LOCALE:3000/api/siri",
+        "WFHTTPMethod": "POST",
+        "WFHTTPHeaders": {
+          "Content-Type": "application/json",
+          "X-Persona": "jarvis"
+        },
+        "WFJSONValues": {
+          "query": "{{Provided Input}}",
+          "persona": "jarvis",
+          "apuTelemetry": {
+            "engine": "Apple Neural Engine (iOS Shortcut Bridge)",
+            "device": "iPhone"
+          }
+        }
+      }
+    },
+    {
+      "step": 3,
+      "action": "is.workflow.actions.getvalueforkey",
+      "label": "Ottieni valore del dizionario per 'speech'",
+      "parameters": {
+        "WFDictionaryKey": "speech"
+      }
+    },
+    {
+      "step": 4,
+      "action": "is.workflow.actions.speaktext",
+      "label": "Leggi testo ad alta voce (Siri Voice)",
+      "parameters": {
+        "WFSpeakTextLanguage": "it-IT",
+        "WFSpeakTextWait": true
+      }
+    }
+  ]
+}
