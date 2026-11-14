@@ -1,0 +1,11 @@
+{
+  "name": "STARK OS — J.A.R.V.I.S. & E.D.I.T.H. AI Assistant",
+  "short_name": "STARK AI",
+  "description": "Assistente AI All-in-One connesso a Siri su iOS, APU on-device e ricerca universale in tempo reale.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#060911",
+  "theme_color": "#060911",
+  "orientation": "portrait-primary",
+  "lang": "it-IT"
+}

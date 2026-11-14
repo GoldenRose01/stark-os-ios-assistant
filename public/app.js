@@ -7,7 +7,7 @@
     isSpeaking: false,
     isProcessing: false,
     apuTelemetry: {
-      engine: 'WebGPU / Neural APU Bridge',
+      engine: 'Apple Neural Engine / WebGPU Hybrid',
       cores: navigator.hardwareConcurrency || 8,
       webgpu: false
     },
@@ -23,7 +23,7 @@
       localStorage.getItem('stark_memory') ||
         JSON.stringify([
           { id: 'm1', text: 'Lingua operativa primaria: Italiano (sintesi vocale e dossier tecnici)' },
-          { id: 'm2', text: 'Dispositivo primario: iOS con integrazione Siri Shortcuts & AppIntents' }
+          { id: 'm2', text: 'Dispositivo primario: iPhone iOS con integrazione Siri & APU locale' }
         ])
     ),
     iosPackageFiles: {}
@@ -48,18 +48,13 @@
 
   // 1. Hardware APU / WebGPU / Apple Silicon Neural Engine Detection
   async function detectHardwareAPU() {
-    const cores = navigator.hardwareConcurrency || 8;
-    let gpuName = 'CPU / SIMD Vettoriale';
+    const cores = navigator.hardwareConcurrency || 6;
     let hasWebGpu = false;
 
     if ('gpu' in navigator) {
       try {
         const adapter = await navigator.gpu.requestAdapter();
-        if (adapter) {
-          hasWebGpu = true;
-          const info = adapter.info || {};
-          gpuName = info.description || info.vendor || 'WebGPU Hardware APU';
-        }
+        if (adapter) hasWebGpu = true;
       } catch (_) {}
     }
 
@@ -72,8 +67,7 @@
     state.apuTelemetry = {
       engine: engineLabel,
       cores,
-      webgpu: hasWebGpu,
-      gpuName
+      webgpu: hasWebGpu
     };
 
     telemetryApu.textContent = engineLabel;
@@ -124,7 +118,7 @@
     });
   });
 
-  // 4. Animated 60fps Canvas Reactor (Arc Reactor for J.A.R.V.I.S. / Optical Reticle for E.D.I.T.H.)
+  // 4. Animated 60fps Canvas Reactor
   const canvas = document.getElementById('reactorCanvas');
   const ctx = canvas.getContext('2d');
   let phase = 0;
@@ -142,7 +136,6 @@
     const speedMultiplier = state.isListening || state.isSpeaking || state.isProcessing ? 2.6 : 1.0;
     phase += 0.018 * speedMultiplier;
 
-    // Outer segmented tactical ring
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(phase * 0.5);
@@ -158,7 +151,6 @@
     }
     ctx.restore();
 
-    // Counter-rotating inner telemetry ring
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(-phase * 0.85);
@@ -173,11 +165,7 @@
     }
     ctx.restore();
 
-    // Dynamic audio/processing pulse ring
-    const pulseRadius =
-      95 +
-      Math.sin(phase * 2.5) * (state.isListening || state.isSpeaking ? 16 : 5);
-
+    const pulseRadius = 95 + Math.sin(phase * 2.5) * (state.isListening || state.isSpeaking ? 16 : 5);
     ctx.beginPath();
     ctx.arc(cx, cy, pulseRadius, 0, Math.PI * 2);
     ctx.fillStyle = isEdith ? 'rgba(251, 113, 133, 0.14)' : 'rgba(34, 211, 238, 0.14)';
@@ -186,7 +174,6 @@
     ctx.strokeStyle = primaryColor;
     ctx.stroke();
 
-    // Core geometry (Triangle/Hexagon for E.D.I.T.H., Arc Core for J.A.R.V.I.S.)
     ctx.save();
     ctx.translate(cx, cy);
     if (isEdith) {
@@ -210,7 +197,6 @@
     }
     ctx.restore();
 
-    // Center readout label
     ctx.fillStyle = '#f1f5f9';
     ctx.font = '700 20px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
@@ -227,15 +213,15 @@
     requestAnimationFrame(renderReactor);
   }
 
-  // 5. Speech Synthesis (TTS in Italian)
+  // 5. Speech Synthesis (TTS in Italian — iOS Safari Compatible)
   function speakText(text) {
     if (!state.ttsEnabled || !('speechSynthesis' in window) || !text) return;
     try {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'it-IT';
-      utterance.rate = state.persona === 'edith' ? 1.06 : 0.98;
-      utterance.pitch = state.persona === 'edith' ? 1.04 : 0.92;
+      utterance.rate = state.persona === 'edith' ? 1.05 : 0.98;
+      utterance.pitch = state.persona === 'edith' ? 1.03 : 0.94;
 
       const voices = window.speechSynthesis.getVoices();
       const itVoice = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith('it'));
@@ -313,7 +299,7 @@
   function toggleMicrophone() {
     if (!recognition) {
       voiceStatusText.textContent =
-        'Il browser attuale non espone WebSpeech API diretta: usa la barra comandi o il comando vocale "Ehi Siri" su iOS.';
+        'Su iOS puoi usare anche il microfono della tastiera (Dettatura Siri) o il comando "Ehi Siri".';
       commandInput.focus();
       return;
     }
@@ -327,7 +313,230 @@
   btnToggleMic.addEventListener('click', toggleMicrophone);
   canvas.addEventListener('click', toggleMicrophone);
 
-  // 7. Markdown-lite Formatter & Stream Renderer
+  // 7. Standalone Client-Side iOS Intelligence Engine (runs directly on iPhone when no server is used)
+  async function runStandaloneOnDeviceQuery(query) {
+    const startTime = Date.now();
+    const persona = state.persona;
+    const lower = query.toLowerCase();
+    const cards = [];
+
+    // A) Task / Memory Commands
+    if (/^(aggiungi task|crea promemoria|ricordami di|aggiungi nota|memorizza che)/i.test(lower)) {
+      const extracted = query
+        .replace(/^(aggiungi task|crea promemoria|ricordami di|aggiungi nota|memorizza che)[:\s]*/i, '')
+        .trim();
+      const isMem = lower.includes('memorizza');
+      const speech =
+        persona === 'edith'
+          ? `Ricevuto. Ho registrato nel database tattico del tuo iPhone: "${extracted}".`
+          : `Certamente, Signore. Ho annotato "${extracted}" nella memoria locale del dispositivo.`;
+      return {
+        ok: true,
+        persona,
+        speech,
+        display: speech,
+        provider: `${state.apuTelemetry.engine} (On-Device Vault)`,
+        latencyMs: Math.max(6, Date.now() - startTime),
+        taskAction: { type: isMem ? 'MEMORY_ADD' : 'TASK_ADD', content: extracted },
+        cards: [
+          {
+            category: isMem ? 'MEMORIA NEURALE AGGIORNATA' : 'NUOVO TASK OPERATIVO',
+            title: extracted,
+            summary: 'Salvato direttamente nella memoria persistente del tuo iPhone.'
+          }
+        ]
+      };
+    }
+
+    // B) Live Weather via Open-Meteo directly from iPhone
+    if (/\b(meteo|tempo|temperatura|piove|previsioni)\b/i.test(lower)) {
+      const cityMatch =
+        query.match(/(?:meteo|tempo|temperatura|previsioni)\s+(?:a|di|per|su|in)?\s*([a-zA-ZÀ-ÿ\s]{2,25})/i) || [];
+      const targetCity = (cityMatch[1] || 'Roma').replace(/\b(oggi|domani|adesso|ora|live|in tempo reale)\b/gi, '').trim() || 'Roma';
+      try {
+        const geoRes = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(targetCity)}&count=1&language=it&format=json`
+        );
+        const geo = await geoRes.json();
+        if (geo?.results?.length > 0) {
+          const p = geo.results[0];
+          const wxRes = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${p.latitude}&longitude=${p.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,surface_pressure`
+          );
+          const wx = await wxRes.json();
+          if (wx?.current) {
+            const c = wx.current;
+            const cityLabel = `${p.name}${p.country ? ', ' + p.country : ''}`;
+            const speech =
+              persona === 'edith'
+                ? `Scansione atmosferica su ${cityLabel}: ${c.temperature_2m} gradi Celsius, umidità ${c.relative_humidity_2m} percento, vento a ${c.wind_speed_10m} chilometri orari.`
+                : `Signore, la telemetria meteo live su ${cityLabel} rileva ${c.temperature_2m} gradi Celsius, percepita ${c.apparent_temperature} gradi e vento a ${c.wind_speed_10m} chilometri orari.`;
+            return {
+              ok: true,
+              persona,
+              speech,
+              display: `### Scansione Atmosferica — ${cityLabel}\n\nTemperatura attuale di **${c.temperature_2m}°C** (percepita ${c.apparent_temperature}°C), umidità al **${c.relative_humidity_2m}%** e vento a **${c.wind_speed_10m} km/h**.`,
+              provider: `${state.apuTelemetry.engine} + Open-Meteo Live`,
+              latencyMs: Date.now() - startTime,
+              cards: [
+                {
+                  category: 'TELEMETRIA METEO SATELLITARE LIVE',
+                  title: `Situazione Atmosferica: ${cityLabel}`,
+                  summary: `Temperatura ${c.temperature_2m}°C, umidità ${c.relative_humidity_2m}%, pressione ${c.surface_pressure} hPa.`,
+                  metrics: [
+                    { label: 'Temperatura', value: `${c.temperature_2m} °C` },
+                    { label: 'Percepita', value: `${c.apparent_temperature} °C` },
+                    { label: 'Umidità', value: `${c.relative_humidity_2m}%` },
+                    { label: 'Vento', value: `${c.wind_speed_10m} km/h` }
+                  ]
+                }
+              ]
+            };
+          }
+        }
+      } catch (_) {}
+    }
+
+    // C) Local APU Math Co-Processor
+    const cleanMath = query
+      .toLowerCase()
+      .replace(/quanto fa|calcola|risolvi|\?/g, ' ')
+      .replace(/,/g, '.')
+      .replace(/×|x(?=\s*\d)/g, '*')
+      .replace(/÷/g, '/')
+      .trim();
+    if (/^[0-9+\-*/().\s]+$/.test(cleanMath) && /[+\-*/]/.test(cleanMath)) {
+      try {
+        const val = Function(`"use strict"; return (${cleanMath});`)();
+        if (typeof val === 'number' && Number.isFinite(val)) {
+          const resNum = Number(val.toFixed(6));
+          const speech =
+            persona === 'edith'
+              ? `Calcolo APU completato: ${cleanMath} equivale a ${resNum}.`
+              : `Il risultato del calcolo ${cleanMath} è esattamente ${resNum}, Signore.`;
+          return {
+            ok: true,
+            persona,
+            speech,
+            display: `### Calcolo Computazionale APU\n\n\`${cleanMath} = ${resNum}\``,
+            provider: `${state.apuTelemetry.engine} (Math Co-Processor)`,
+            latencyMs: 2,
+            cards: [
+              {
+                category: 'CO-PROCESSORE MATEMATICO ON-DEVICE',
+                title: `${cleanMath} = ${resNum}`,
+                summary: 'Eseguito direttamente sull\'unità aritmetica locale dell\'iPhone a latenza zero.'
+              }
+            ]
+          };
+        }
+      } catch (_) {}
+    }
+
+    // D) Direct Gemini API call if user configured a Gemini Key on iPhone
+    if (state.apiConfig.geminiKey) {
+      try {
+        const sys =
+          persona === 'edith'
+            ? 'Sei E.D.I.T.H., assistente tattico di Tony Stark su iOS. Rispondi in italiano in modo diretto e preciso.'
+            : 'Sei J.A.R.V.I.S., assistente AI di Tony Stark su iOS. Rispondi in italiano con stile elegante ("Agli ordini, Signore") e completo.';
+        const gemRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.apiConfig.geminiKey)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: sys }] },
+              contents: [{ role: 'user', parts: [{ text: query }] }]
+            })
+          }
+        );
+        const gemData = await gemRes.json();
+        const reply = gemData?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (reply) {
+          return {
+            ok: true,
+            persona,
+            speech: reply.replace(/[#*`_~>-]/g, '').slice(0, 480),
+            display: reply,
+            provider: 'Google Gemini 2.5 Flash (Direct iOS)',
+            latencyMs: Date.now() - startTime,
+            cards: []
+          };
+        }
+      } catch (_) {}
+    }
+
+    // E) Direct Wikipedia IT Live Search from iPhone
+    const cleanTopic = query
+      .replace(/^(chi è|chi era|cosa è|cos'è|che cos'è|parlami di|cerca|dimmi tutto su|informazioni su|spiegami|jarvis|edith)\s+/i, '')
+      .replace(/\?+$/, '')
+      .trim();
+
+    if (cleanTopic) {
+      try {
+        const sRes = await fetch(
+          `https://it.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanTopic)}&utf8=&format=json&origin=*&srlimit=1`
+        );
+        const sJson = await sRes.json();
+        if (sJson?.query?.search?.length > 0) {
+          const bestTitle = sJson.query.search[0].title;
+          const sumRes = await fetch(
+            `https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(bestTitle)}`
+          );
+          const summary = await sumRes.json();
+          if (summary && summary.extract) {
+            const prefix =
+              persona === 'edith'
+                ? `Dossier ${summary.title} acquisito.`
+                : `Agli ordini, Signore. Ho estratto il dossier verificato su ${summary.title}.`;
+            return {
+              ok: true,
+              persona,
+              speech: `${prefix} ${summary.extract}`,
+              display: `### ${summary.title}\n*${(summary.description || 'DOSSIER VERIFICATO').toUpperCase()}*\n\n${summary.extract}`,
+              provider: `${state.apuTelemetry.engine} + Wikipedia IT Live`,
+              latencyMs: Date.now() - startTime,
+              cards: [
+                {
+                  category: (summary.description || 'DOSSIER ENCICLOPEDICO LIVE').toUpperCase(),
+                  title: summary.title,
+                  summary: summary.extract,
+                  thumbnail: summary.thumbnail?.source || null,
+                  metrics: [
+                    { label: 'Fonte Primaria', value: 'Wikipedia (IT)' },
+                    { label: 'Modalità', value: 'Standalone iOS' }
+                  ],
+                  sources: [
+                    {
+                      title: `${summary.title} — Wikipedia`,
+                      url: summary.content_urls?.desktop?.page || `https://it.wikipedia.org/wiki/${encodeURIComponent(bestTitle)}`
+                    }
+                  ]
+                }
+              ]
+            };
+          }
+        }
+      } catch (_) {}
+    }
+
+    const fallbackSpeech =
+      persona === 'edith'
+        ? `Sistema E.D.I.T.H. attivo su iPhone per "${query}". Puoi chiedere qualsiasi dossier enciclopedico, meteo di qualsiasi città, calcoli o inserire una API Key nel tab Motore AI & APU.`
+        : `Signore, ho analizzato "${query}" sull'APU locale del suo iPhone. Può chiedermi qualsiasi ricerca enciclopedica, meteo live, calcoli o inserire una chiave API nel pannello Motore AI & APU.`;
+    return {
+      ok: true,
+      persona,
+      speech: fallbackSpeech,
+      display: fallbackSpeech,
+      provider: state.apuTelemetry.engine,
+      latencyMs: Date.now() - startTime,
+      cards: []
+    };
+  }
+
+  // 8. Markdown-lite Formatter & Stream Renderer
   function formatDisplayHtml(md) {
     if (!md) return '';
     return md
@@ -401,7 +610,7 @@
     streamContainer.prepend(entry);
   }
 
-  // 8. Execute Query against Hybrid APU + Backend
+  // 9. Execute Query (Tries Backend Server first, automatically falls back to Standalone On-Device iOS Engine!)
   async function submitQuery(rawQuery) {
     const query = (rawQuery || '').trim();
     if (!query || state.isProcessing) return;
@@ -416,6 +625,7 @@
       text: query
     });
 
+    let data = null;
     try {
       const response = await fetch('/api/assistant', {
         method: 'POST',
@@ -428,46 +638,43 @@
           apuTelemetry: state.apuTelemetry
         })
       });
-
-      const data = await response.json();
-      state.isProcessing = false;
-      voiceStateBadge.textContent = 'PRONTO';
-
-      if (data.provider) telemetryProvider.textContent = data.provider;
-      if (data.latencyMs) telemetryLatency.textContent = `${data.latencyMs} ms`;
-
-      // Handle automatic task or memory additions triggered by natural language
-      if (data.taskAction) {
-        if (data.taskAction.type === 'MEMORY_ADD') {
-          state.memory.unshift({ id: 'm_' + Date.now(), text: data.taskAction.content });
-          saveAndRenderMemory();
-        } else {
-          state.tasks.unshift({ id: 't_' + Date.now(), text: data.taskAction.content, done: false });
-          saveAndRenderTasks();
-        }
+      if (response.ok) {
+        data = await response.json();
       }
-
-      appendStreamMessage({
-        role: 'assistant',
-        sender: state.persona === 'edith' ? 'E.D.I.T.H. TACTICAL CORE' : 'J.A.R.V.I.S. AI CORE',
-        text: data.display || data.speech,
-        cards: data.cards || [],
-        provider: data.provider || 'Stark APU Core',
-        latencyMs: data.latencyMs || 12
-      });
-
-      speakText(data.speech);
-    } catch (err) {
-      state.isProcessing = false;
-      voiceStateBadge.textContent = 'ERRORE RETE';
-      appendStreamMessage({
-        role: 'assistant',
-        sender: 'SISTEMA DIAGNOSTICO',
-        text: `Anomalia di comunicazione col nodo locale: ${err.message}`,
-        provider: 'Fallback APU',
-        latencyMs: 4
-      });
+    } catch (_) {
+      // Backend server not present (e.g. running on iPhone via GitHub Pages) -> use Standalone iOS Engine!
     }
+
+    if (!data || !data.ok) {
+      data = await runStandaloneOnDeviceQuery(query);
+    }
+
+    state.isProcessing = false;
+    voiceStateBadge.textContent = 'PRONTO';
+
+    if (data.provider) telemetryProvider.textContent = data.provider;
+    if (data.latencyMs) telemetryLatency.textContent = `${data.latencyMs} ms`;
+
+    if (data.taskAction) {
+      if (data.taskAction.type === 'MEMORY_ADD') {
+        state.memory.unshift({ id: 'm_' + Date.now(), text: data.taskAction.content });
+        saveAndRenderMemory();
+      } else {
+        state.tasks.unshift({ id: 't_' + Date.now(), text: data.taskAction.content, done: false });
+        saveAndRenderTasks();
+      }
+    }
+
+    appendStreamMessage({
+      role: 'assistant',
+      sender: state.persona === 'edith' ? 'E.D.I.T.H. TACTICAL CORE' : 'J.A.R.V.I.S. AI CORE',
+      text: data.display || data.speech,
+      cards: data.cards || [],
+      provider: data.provider || 'Stark APU Core',
+      latencyMs: data.latencyMs || 12
+    });
+
+    speakText(data.speech);
   }
 
   commandForm.addEventListener('submit', (e) => {
@@ -482,7 +689,7 @@
     });
   });
 
-  // 9. Siri Webhook Simulator & Native Swift Inspector
+  // 10. Siri Webhook Simulator & Native Swift Inspector
   const siriEndpointUrlDisplay = document.getElementById('siriEndpointUrlDisplay');
   const siriWebhookPreview = document.getElementById('siriWebhookPreview');
   const swiftCodeViewer = document.getElementById('swiftCodeViewer');
@@ -492,26 +699,10 @@
   }
 
   document.getElementById('btnTestSiriWebhook').addEventListener('click', async () => {
-    siriWebhookPreview.textContent = '// Invio richiesta vocale simulata da Siri a POST /api/siri...';
-    try {
-      const res = await fetch('/api/siri', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: 'Meteo Roma in tempo reale',
-          persona: state.persona,
-          apuTelemetry: {
-            engine: 'iPhone 16 Pro — 16-Core Apple Neural Engine (Siri Shortcut)',
-            cores: 6
-          }
-        })
-      });
-      const json = await res.json();
-      siriWebhookPreview.textContent = JSON.stringify(json, null, 2);
-      speakText(json.speech);
-    } catch (e) {
-      siriWebhookPreview.textContent = `Errore test Siri: ${e.message}`;
-    }
+    siriWebhookPreview.textContent = '// Simulazione risposta vocale Siri in corso...';
+    const json = await runStandaloneOnDeviceQuery('Meteo Roma in tempo reale');
+    siriWebhookPreview.textContent = JSON.stringify(json, null, 2);
+    speakText(json.speech);
   });
 
   document.getElementById('btnCopyCurl').addEventListener('click', () => {
@@ -523,15 +714,19 @@
   async function loadIosPackageFiles() {
     try {
       const res = await fetch('/api/ios-package');
-      const data = await res.json();
-      if (data.ok && data.files) {
-        state.iosPackageFiles = data.files;
-        const defaultFile = 'ios-native/SiriIntents/AskStarkIntent.swift';
-        if (state.iosPackageFiles[defaultFile]) {
-          swiftCodeViewer.textContent = state.iosPackageFiles[defaultFile];
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok && data.files) {
+          state.iosPackageFiles = data.files;
+          const defaultFile = 'ios-native/SiriIntents/AskStarkIntent.swift';
+          if (state.iosPackageFiles[defaultFile]) {
+            swiftCodeViewer.textContent = state.iosPackageFiles[defaultFile];
+          }
+          return;
         }
       }
     } catch (_) {}
+    swiftCodeViewer.textContent = '// Tutti i file Swift 6 sono presenti nella cartella ios-native/ del repository GitHub GoldenRose01/stark-os-ios-assistant.';
   }
 
   document.querySelectorAll('.swift-file-btn').forEach((btn) => {
@@ -545,7 +740,7 @@
     });
   });
 
-  // 10. Engine & API Vault Configuration
+  // 11. Engine & API Vault Configuration
   function hydrateApiConfigForm() {
     document.getElementById('selectRoutingMode').value = state.apiConfig.routingMode || 'hybrid';
     document.getElementById('inputCustomEndpoint').value = state.apiConfig.customEndpoint || '';
@@ -574,7 +769,7 @@
     }, 3000);
   });
 
-  // 11. Tasks & Contextual Memory Management
+  // 12. Tasks & Contextual Memory Management
   function saveAndRenderTasks() {
     localStorage.setItem('stark_tasks', JSON.stringify(state.tasks));
     const container = document.getElementById('taskListContainer');
@@ -659,6 +854,12 @@
     saveAndRenderMemory();
   });
 
+  // Check if URL has ?q=... parameter (so iOS Siri Shortcuts can open the app directly with a voice query!)
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialQuery = urlParams.get('q') || urlParams.get('query');
+  const initialPersona = urlParams.get('persona');
+  if (initialPersona) applyPersona(initialPersona);
+
   // Initialize Boot Sequence
   applyPersona(state.persona);
   btnToggleTts.textContent = `Voce AI: ${state.ttsEnabled ? 'ON' : 'OFF'}`;
@@ -669,29 +870,32 @@
   loadIosPackageFiles();
   requestAnimationFrame(renderReactor);
 
-  // Initial welcome dossier in stream
-  appendStreamMessage({
-    role: 'assistant',
-    sender: state.persona === 'edith' ? 'E.D.I.T.H. TACTICAL CORE' : 'J.A.R.V.I.S. AI CORE',
-    text:
-      state.persona === 'edith'
-        ? 'Sistema tattico **E.D.I.T.H.** online. L\'acceleratore APU locale e il ponte webhook per **Siri su iOS** (`/api/siri` + `AppIntents`) sono operativi. Seleziona un bersaglio di ricerca o premi sul reticolo ottico per parlare.'
-        : 'Bentornato, Signore. Tutti i sistemi **J.A.R.V.I.S.** sono online. L\'unità computazionale APU del dispositivo è sincronizzata con il motore di ricerca live e con il ponte vocale **Siri su iOS**. Come posso assisterla oggi?',
-    cards: [
-      {
-        category: 'STATO ARCHITETTURA IBRIDA',
-        title: 'Siri iOS Bridge + On-Device APU + Multi-API Router',
-        summary:
-          'Puoi interrogare l\'assistente via voce o testo su qualsiasi argomento (enciclopedia live, meteo satellitare, calcoli, gestione task) oppure collegarlo a "Ehi Siri" tramite Comandi Rapidi o il codice nativo Swift 6 incluso nel tab "Siri & iOS Nativo".',
-        metrics: [
-          { label: 'Endpoint Siri', value: 'POST /api/siri' },
-          { label: 'Codice Xcode', value: 'Swift 6 AppIntents' },
-          { label: 'Pre-Processing', value: 'APU / WebGPU / ANE' },
-          { label: 'Stato Voce', value: 'Italiano (it-IT)' }
-        ]
-      }
-    ],
-    provider: 'Stark Hybrid APU Core',
-    latencyMs: 9
-  });
+  if (initialQuery) {
+    setTimeout(() => submitQuery(initialQuery), 300);
+  } else {
+    appendStreamMessage({
+      role: 'assistant',
+      sender: state.persona === 'edith' ? 'E.D.I.T.H. TACTICAL CORE' : 'J.A.R.V.I.S. AI CORE',
+      text:
+        state.persona === 'edith'
+          ? 'Sistema tattico **E.D.I.T.H.** online su iOS. L\'acceleratore APU locale e il motore di ricerca live sono operativi anche senza server esterno.'
+          : 'Bentornato, Signore. Tutti i sistemi **J.A.R.V.I.S.** sono online. L\'app funziona direttamente sull\'APU del suo iPhone anche senza cavi o PC.',
+      cards: [
+        {
+          category: 'MODALITÀ STANDALONE iOS ATTIVA',
+          title: 'Installabile su iPhone da Safari (Zero-Cavi / Zero-Sideloadly)',
+          summary:
+            'Su iPhone tocca il tasto Condividi di Safari -> "Aggiungi alla schermata Home" per installare STARK AI come App a tutto schermo, oppure passa parametri da Siri con ?q=LaTuaDomanda.',
+          metrics: [
+            { label: 'Motore iOS', value: 'Standalone + APU' },
+            { label: 'Dati Live', value: 'Wikipedia + Meteo' },
+            { label: 'Parametro Siri', value: '?q=Domanda' },
+            { label: 'Voce', value: 'Italiano (it-IT)' }
+          ]
+        }
+      ],
+      provider: 'Stark Hybrid APU Core',
+      latencyMs: 7
+    });
+  }
 })();
