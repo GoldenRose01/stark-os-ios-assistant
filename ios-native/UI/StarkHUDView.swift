@@ -8,7 +8,7 @@ import Speech
 final class StarkSpeechRecognizer: ObservableObject {
     @Published var isRecording = false
     @Published var transcript = ""
-    @Published var statusMessage = "Tocca il Reattore per parlare in italiano"
+    @Published var statusMessage = "Tocca la Maschera d'Oro per parlare in italiano"
 
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "it-IT"))
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
@@ -27,13 +27,13 @@ final class StarkSpeechRecognizer: ObservableObject {
         SFSpeechRecognizer.requestAuthorization { authStatus in
             Task { @MainActor in
                 guard authStatus == .authorized else {
-                    self.statusMessage = "Permesso microfono/voce richiesto nelle Impostazioni iOS"
+                    self.statusMessage = "Abilita Microfono e Riconoscimento Vocale nelle Impostazioni"
                     return
                 }
                 do {
                     try self.beginAudioSession(onFinalResult: onFinalResult)
                 } catch {
-                    self.statusMessage = "Impossibile avviare la sessione audio: \(error.localizedDescription)"
+                    self.statusMessage = "Errore sessione audio: \(error.localizedDescription)"
                 }
             }
         }
@@ -63,7 +63,7 @@ final class StarkSpeechRecognizer: ObservableObject {
 
         self.transcript = ""
         self.isRecording = true
-        self.statusMessage = "In ascolto... parla ora"
+        self.statusMessage = "DoomAi in ascolto... parla ora"
 
         recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
             guard let self = self else { return }
@@ -94,28 +94,29 @@ final class StarkSpeechRecognizer: ObservableObject {
         recognitionRequest = nil
         recognitionTask = nil
         isRecording = false
-        statusMessage = "Tocca il Reattore per parlare in italiano"
+        statusMessage = "Tocca la Maschera d'Oro per parlare in italiano"
     }
 }
 
-// MARK: - Vista Principale Multi-Tab dell'App Nativa iOS
+// MARK: - Vista Principale Multi-Tab Ottimizzata per iPhone 16 Pro Max (6.9" Super Retina XDR)
 @available(iOS 16.0, *)
 struct StarkHUDView: View {
     @StateObject private var engine = HybridAPUEngine.shared
     @StateObject private var speechRec = StarkSpeechRecognizer()
     @State private var selectedTab: Int = 0
 
+    // Oro 24K per D.O.O.M./J.A.R.V.I.S., Oro-Cremisi per E.D.I.T.H.
     var primaryAccent: Color {
         engine.persona == "edith"
-            ? Color(red: 0.98, green: 0.35, blue: 0.45)
-            : Color(red: 0.13, green: 0.83, blue: 0.93)
+            ? Color(red: 0.96, green: 0.27, blue: 0.38)
+            : Color(red: 0.93, green: 0.75, blue: 0.22)
     }
 
     var body: some View {
         TabView(selection: $selectedTab) {
             StarkConsoleTabView(engine: engine, speechRec: speechRec, primaryAccent: primaryAccent)
                 .tabItem {
-                    Label("HUD Console", systemImage: "waveform.circle.fill")
+                    Label("DoomAi HUD", systemImage: "shield.lefthalf.filled")
                 }
                 .tag(0)
 
@@ -133,15 +134,16 @@ struct StarkHUDView: View {
 
             StarkSiriGuideTabView(engine: engine, primaryAccent: primaryAccent)
                 .tabItem {
-                    Label("Ponte Siri", systemImage: "mic.badge.plus")
+                    Label("Ponte Siri", systemImage: "waveform.badge.mic")
                 }
                 .tag(3)
         }
         .tint(primaryAccent)
+        .preferredColorScheme(.dark)
     }
 }
 
-// MARK: - TAB 1: Console Tattica HUD + Reattore Vocale + Dossier Live
+// MARK: - TAB 1: Console Tattica Full-Screen iPhone 16 Pro Max
 @available(iOS 16.0, *)
 struct StarkConsoleTabView: View {
     @ObservedObject var engine: HybridAPUEngine
@@ -166,164 +168,217 @@ struct StarkConsoleTabView: View {
     ]
 
     var body: some View {
-        ZStack {
-            Color(red: 0.03, green: 0.05, blue: 0.09).ignoresSafeArea()
+        GeometryReader { geo in
+            let isProMax = geo.size.height >= 740
+            let reactorOuterSize: CGFloat = isProMax ? 168 : 134
+            let reactorInnerSize: CGFloat = isProMax ? 116 : 92
 
-            VStack(spacing: 12) {
-                // Top Header Bar
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(engine.persona == "edith" ? "E.D.I.T.H. // TACTICAL HUD" : "J.A.R.V.I.S. // MARK VII")
-                            .font(.system(size: 16, weight: .bold, design: .monospaced))
-                            .foregroundStyle(primaryAccent)
-                        Text("ON-DEVICE APPLE NEURAL ENGINE + SIRI")
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Picker("Protocollo", selection: $engine.persona) {
-                        Text("J.A.R.V.I.S.").tag("jarvis")
-                        Text("E.D.I.T.H.").tag("edith")
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 165)
-                }
-                .padding(.horizontal)
-                .padding(.top, 6)
+            ZStack {
+                // Sfondo Nero Puro OLED per iPhone 16 Pro Max
+                Color.black.ignoresSafeArea()
 
-                // Reattore Vocale Interattivo
-                VStack(spacing: 6) {
-                    Button {
-                        speechRec.toggleRecording { recognizedText in
-                            queryText = recognizedText
-                            Task { await executeSearch(recognizedText) }
-                        }
-                    } label: {
-                        ZStack {
-                            Circle()
-                                .stroke(
-                                    primaryAccent.opacity(0.35),
-                                    style: StrokeStyle(lineWidth: 3, dash: engine.persona == "edith" ? [14, 8] : [22, 6])
-                                )
-                                .frame(width: 122, height: 122)
-                                .rotationEffect(.degrees(ringRotation))
-
-                            Circle()
-                                .stroke(primaryAccent.opacity(0.55), lineWidth: 2)
-                                .frame(width: 94, height: 94)
-                                .scaleEffect(pulseScale)
-
-                            Circle()
-                                .fill(speechRec.isRecording ? Color.red.opacity(0.28) : primaryAccent.opacity(0.16))
-                                .frame(width: 76, height: 76)
-
-                            VStack(spacing: 2) {
-                                Image(systemName: speechRec.isRecording ? "stop.fill" : (isProcessing ? "waveform" : "mic.fill"))
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundStyle(speechRec.isRecording ? .red : primaryAccent)
-                                Text(speechRec.isRecording ? "STOP" : (isProcessing ? "SCAN" : engine.persona.uppercased()))
-                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(.white)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-
-                    Text(speechRec.isRecording ? (speechRec.transcript.isEmpty ? "Parla ora..." : speechRec.transcript) : speechRec.statusMessage)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                .onAppear {
-                    withAnimation(.linear(duration: 12).repeatForever(autoreverses: false)) {
-                        ringRotation = 360
-                    }
-                    withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
-                        pulseScale = 1.12
-                    }
-                }
-
-                // Chip Scansioni Rapide
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(presets, id: \.self) { item in
-                            Button {
-                                Task { await executeSearch(item) }
-                            } label: {
-                                Text(item)
-                                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(Color.white.opacity(0.06))
-                                    .foregroundStyle(primaryAccent)
-                                    .clipShape(Capsule())
-                                    .overlay(Capsule().stroke(primaryAccent.opacity(0.3), lineWidth: 1))
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-
-                // Flusso Risposte e Dossier
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        if history.isEmpty {
-                            StarkSiriSnippetView(
-                                response: StarkAssistantResponse(
-                                    ok: true,
-                                    persona: engine.persona,
-                                    speech: "Bentornato, Signore. Tutti i sistemi nativi iOS sull'Apple Neural Engine sono operativi. Tocca il Reattore per parlare o scegli una scansione rapida.",
-                                    display: "Bentornato, Signore. Tutti i sistemi nativi iOS sull'Apple Neural Engine sono operativi.",
-                                    provider: "Apple Neural Engine 16-Core",
-                                    latencyMs: 6,
-                                    cards: [
-                                        StarkCardItem(
-                                            type: "status",
-                                            category: "STATO SISTEMA NATIVO iOS",
-                                            title: "App Nativa StarkOS Pronta",
-                                            summary: "Riconoscimento vocale italiano, Wikipedia live, Open-Meteo, Co-Processore matematico e Siri AppIntents attivi.",
-                                            metrics: [
-                                                StarkMetric(label: "Engine", value: "CoreML + ANE"),
-                                                StarkMetric(label: "Siri", value: "AppIntents Attivo")
-                                            ],
-                                            sourceURL: nil
-                                        )
-                                    ]
-                                )
+                VStack(spacing: isProMax ? 16 : 12) {
+                    // Header Superiore con Icona Maschera d'Oro
+                    HStack(spacing: 12) {
+                        Image("DoomMaskLogo")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 42, height: 42)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(primaryAccent.opacity(0.65), lineWidth: 1.2)
                             )
-                        } else {
-                            ForEach(Array(history.enumerated()), id: \.offset) { _, item in
-                                StarkSiriSnippetView(response: item)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("DOOM AI")
+                                .font(.system(size: 19, weight: .heavy, design: .monospaced))
+                                .foregroundStyle(primaryAccent)
+                            Text("A18 PRO 16-CORE APU // \(engine.persona.uppercased())")
+                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Picker("Assetto", selection: $engine.persona) {
+                            Text("J.A.R.V.I.S.").tag("jarvis")
+                            Text("E.D.I.T.H.").tag("edith")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 156)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 8)
+
+                    // Reattore Centrale con Maschera d'Oro Interattiva
+                    VStack(spacing: 8) {
+                        Button {
+                            speechRec.toggleRecording { recognizedText in
+                                queryText = recognizedText
+                                Task { await executeSearch(recognizedText) }
+                            }
+                        } label: {
+                            ZStack {
+                                // Anello Tattico Esterno Rotante in Oro
+                                Circle()
+                                    .stroke(
+                                        primaryAccent.opacity(0.45),
+                                        style: StrokeStyle(lineWidth: 3, dash: engine.persona == "edith" ? [14, 8] : [26, 8])
+                                    )
+                                    .frame(width: reactorOuterSize, height: reactorOuterSize)
+                                    .rotationEffect(.degrees(ringRotation))
+
+                                // Anello Pulsante Intermedio
+                                Circle()
+                                    .stroke(
+                                        speechRec.isRecording ? Color.red : primaryAccent.opacity(0.75),
+                                        lineWidth: 2.2
+                                    )
+                                    .frame(width: reactorInnerSize + 18, height: reactorInnerSize + 18)
+                                    .scaleEffect(pulseScale)
+
+                                // Maschera d'Oro Centrale
+                                Image("DoomMaskLogo")
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: reactorInnerSize, height: reactorInnerSize)
+                                    .clipShape(Circle())
+                                    .overlay(
+                                        Circle()
+                                            .stroke(primaryAccent, lineWidth: 2.5)
+                                    )
+                                    .shadow(color: primaryAccent.opacity(0.45), radius: 14)
+
+                                // Indicatore Stato Sovrapposto in Basso sul Reattore
+                                VStack {
+                                    Spacer()
+                                    HStack(spacing: 5) {
+                                        Image(systemName: speechRec.isRecording ? "stop.fill" : (isProcessing ? "waveform" : "mic.fill"))
+                                            .font(.system(size: 11, weight: .bold))
+                                        Text(speechRec.isRecording ? "IN ASCOLTO" : (isProcessing ? "SCANSIONE..." : "PARLA"))
+                                            .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Color.black.opacity(0.88))
+                                    .foregroundStyle(speechRec.isRecording ? Color.red : primaryAccent)
+                                    .clipShape(Capsule())
+                                    .overlay(Capsule().stroke(primaryAccent.opacity(0.6), lineWidth: 1))
+                                }
+                                .frame(height: reactorOuterSize + 8)
                             }
                         }
-                    }
-                    .padding(.horizontal)
-                }
+                        .buttonStyle(.plain)
 
-                // Barra di Comando Testuale / Vocale
-                HStack(spacing: 10) {
-                    TextField("Chiedi qualsiasi cosa a \(engine.persona.uppercased())...", text: $queryText)
-                        .textFieldStyle(.plain)
-                        .padding(11)
-                        .background(Color.white.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .foregroundStyle(.white)
-                        .submitLabel(.send)
-                        .onSubmit {
-                            Task { await executeSearch(queryText) }
+                        Text(speechRec.isRecording ? (speechRec.transcript.isEmpty ? "Parla ora..." : speechRec.transcript) : speechRec.statusMessage)
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .padding(.horizontal, 18)
+                    }
+                    .onAppear {
+                        withAnimation(.linear(duration: 14).repeatForever(autoreverses: false)) {
+                            ringRotation = 360
                         }
-
-                    Button {
-                        Task { await executeSearch(queryText) }
-                    } label: {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundStyle(primaryAccent)
+                        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                            pulseScale = 1.10
+                        }
                     }
-                    .disabled(queryText.trimmingCharacters(in: .whitespaces).isEmpty || isProcessing)
+
+                    // Chip Scansioni Rapide
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 9) {
+                            ForEach(presets, id: \.self) { item in
+                                Button {
+                                    Task { await executeSearch(item) }
+                                } label: {
+                                    Text(item)
+                                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                        .padding(.horizontal, 13)
+                                        .padding(.vertical, 8)
+                                        .background(Color(red: 0.08, green: 0.08, blue: 0.10))
+                                        .foregroundStyle(primaryAccent)
+                                        .clipShape(Capsule())
+                                        .overlay(Capsule().stroke(primaryAccent.opacity(0.38), lineWidth: 1))
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 18)
+                    }
+
+                    // Flusso Dossier Full-Width Adattivo
+                    ScrollView {
+                        LazyVStack(spacing: 14) {
+                            if history.isEmpty {
+                                StarkSiriSnippetView(
+                                    response: StarkAssistantResponse(
+                                        ok: true,
+                                        persona: engine.persona,
+                                        speech: "Sistema DoomAi attivo a schermo intero su iPhone 16 Pro Max. Il Neural Engine a 16-Core, il riconoscimento vocale italiano e i moduli di ricerca live sono pronti. Tocca la Maschera d'Oro per parlare o seleziona un comando rapido.",
+                                        display: "Sistema DoomAi attivo a schermo intero su iPhone 16 Pro Max.",
+                                        provider: "A18 Pro Neural Engine 16-Core",
+                                        latencyMs: 5,
+                                        cards: [
+                                            StarkCardItem(
+                                                type: "status",
+                                                category: "ASSETTO IMPERIALE DOOM AI // FULL SCREEN",
+                                                title: "Calibrato per Display 6.9\" Super Retina XDR",
+                                                summary: "Ricerca enciclopedica live, meteo satellitare Open-Meteo, calcoli su APU locale, Task/Memoria e Siri AppIntents operativi.",
+                                                metrics: [
+                                                    StarkMetric(label: "Display", value: "Full-Screen OLED"),
+                                                    StarkMetric(label: "APU", value: "16-Core ANE"),
+                                                    StarkMetric(label: "Voce", value: "Italiano Live"),
+                                                    StarkMetric(label: "Siri", value: "AppIntents Ready")
+                                                ],
+                                                sourceURL: nil
+                                            )
+                                        ]
+                                    )
+                                )
+                            } else {
+                                ForEach(Array(history.enumerated()), id: \.offset) { _, item in
+                                    StarkSiriSnippetView(response: item)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 8)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    // Barra di Comando Inferiore ancorata sopra la TabBar
+                    HStack(spacing: 10) {
+                        TextField("Ordina a DoomAi (\(engine.persona.uppercased()))...", text: $queryText)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 15))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(Color(red: 0.09, green: 0.09, blue: 0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(primaryAccent.opacity(0.35), lineWidth: 1)
+                            )
+                            .foregroundStyle(.white)
+                            .submitLabel(.send)
+                            .onSubmit {
+                                Task { await executeSearch(queryText) }
+                            }
+
+                        Button {
+                            Task { await executeSearch(queryText) }
+                        } label: {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.system(size: 36))
+                                .foregroundStyle(primaryAccent)
+                        }
+                        .disabled(queryText.trimmingCharacters(in: .whitespaces).isEmpty || isProcessing)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 10)
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+                .frame(width: geo.size.width, height: geo.size.height)
             }
         }
     }
@@ -360,12 +415,12 @@ struct StarkAIEngineTabView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Telemetria Hardware APU iPhone") {
+                Section("Telemetria Hardware APU iPhone 16 Pro Max") {
                     HStack {
                         Text("Acceleratore Locale")
                         Spacer()
-                        Text("Apple Neural Engine (CoreML .all)")
-                            .font(.system(size: 12, design: .monospaced))
+                        Text("A18 Pro Neural Engine")
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
                             .foregroundStyle(primaryAccent)
                     }
                     HStack {
@@ -379,7 +434,7 @@ struct StarkAIEngineTabView: View {
 
                 Section(
                     header: Text("Vault Chiavi API Cloud (Opzionali)"),
-                    footer: Text("Le chiavi restano salvate esclusivamente nella memoria locale del tuo iPhone. Anche senza chiavi, l'app esegue ricerche live su Wikipedia, Open-Meteo e calcoli sull'APU.")
+                    footer: Text("Le chiavi restano salvate esclusivamente nella memoria locale del tuo iPhone. Anche senza chiavi, DoomAi esegue ricerche live su Wikipedia, Open-Meteo e calcoli sull'APU.")
                 ) {
                     SecureField("Google Gemini API Key (AIza...)", text: $engine.geminiKey)
                     SecureField("Perplexity Sonar API Key (pplx-...)", text: $engine.perplexityKey)
@@ -392,7 +447,7 @@ struct StarkAIEngineTabView: View {
                         .textInputAutocapitalization(.never)
                 }
             }
-            .navigationTitle("Motore AI & APU")
+            .navigationTitle("Motore DoomAi & APU")
         }
     }
 }
@@ -439,11 +494,11 @@ struct StarkTasksMemoryTabView: View {
                 }
 
                 Section(
-                    header: Text("Memoria Contestuale J.A.R.V.I.S. / E.D.I.T.H."),
-                    footer: Text("Questi fatti vengono ricordati dall'assistente nelle risposte vocali e su Siri.")
+                    header: Text("Memoria Contestuale DoomAi"),
+                    footer: Text("Questi fatti vengono ricordati da DoomAi nelle risposte vocali e su Siri.")
                 ) {
                     HStack {
-                        TextField("Memorizza preferenza o dato...", text: $newMemoryText)
+                        TextField("Memorizza preferenza o direttiva...", text: $newMemoryText)
                         Button("Salva") {
                             engine.addMemory(newMemoryText)
                             newMemoryText = ""
@@ -482,29 +537,35 @@ struct StarkSiriGuideTabView: View {
                     SiriTipView(intent: AskStarkIntent())
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("COMANDI VOCALI SIRI REGISTRATI")
+                        Text("COMANDI VOCALI SIRI REGISTRATI IN DOOM AI")
                             .font(.system(size: 12, weight: .bold, design: .monospaced))
                             .foregroundStyle(primaryAccent)
 
-                        Text("Questa app integra il framework nativo Apple AppIntents. Puoi attivare l'assistente in qualsiasi momento dicendo a voce:")
+                        Text("DoomAi integra il framework nativo Apple AppIntents. Puoi attivare l'assistente in qualsiasi momento dicendo a voce:")
                             .font(.system(size: 14))
                             .foregroundStyle(.secondary)
 
-                        VStack(alignment: .leading, spacing: 8) {
-                            Label("\"Ehi Siri, chiedi a Jarvis con StarkOS\"", systemImage: "waveform")
-                            Label("\"Ehi Siri, protocollo Edith su StarkOS\"", systemImage: "eyeglasses")
-                            Label("\"Ehi Siri, interroga Stark con StarkOS\"", systemImage: "bolt.circle")
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("\"Ehi Siri, chiedi a Doom con DoomAi\"", systemImage: "shield.lefthalf.filled")
+                            Label("\"Ehi Siri, chiedi a Jarvis con DoomAi\"", systemImage: "waveform")
+                            Label("\"Ehi Siri, protocollo Edith su DoomAi\"", systemImage: "eyeglasses")
                         }
                         .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(primaryAccent)
                         .padding(.top, 4)
                     }
                     .padding()
-                    .background(Color.white.opacity(0.06))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(red: 0.07, green: 0.07, blue: 0.09))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(primaryAccent.opacity(0.35), lineWidth: 1)
+                    )
                 }
                 .padding()
             }
-            .navigationTitle("Ponte Siri iOS")
+            .navigationTitle("Ponte Siri DoomAi")
         }
     }
 }

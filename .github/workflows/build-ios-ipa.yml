@@ -1,4 +1,4 @@
-name: Build Native iOS App (.ipa) for Windows Sideload
+name: Build Native DoomAi iOS App (.ipa) for Windows Sideload
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-ios-ipa:
-    name: Compila StarkOS.ipa su Cloud macOS (Zero-Mac)
+    name: Compila DoomAi.ipa su Cloud macOS (Zero-Mac)
     runs-on: macos-latest
     steps:
       - name: Checkout Repository
@@ -19,16 +19,16 @@ jobs:
             brew install xcodegen
           fi
 
-      - name: Genera Progetto Xcode (.xcodeproj)
+      - name: Genera Progetto Xcode (DoomAi.xcodeproj)
         working-directory: ios-native
         run: xcodegen generate
 
-      - name: Compila App Nativa iOS (Unsigned per Sideloadly / AltStore su Windows)
+      - name: Compila App Nativa iOS DoomAi (Full-Screen iPhone 16 Pro Max + Gold Mask Icon)
         working-directory: ios-native
         run: |
           xcodebuild clean build \
-            -project StarkOS.xcodeproj \
-            -scheme StarkOS \
+            -project DoomAi.xcodeproj \
+            -scheme DoomAi \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
@@ -37,16 +37,16 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES
 
-      - name: Crea Pacchetto Installabile StarkOS-iOS.ipa
+      - name: Crea Pacchetto Installabile DoomAi-iOS.ipa
         working-directory: ios-native
         run: |
           mkdir -p Payload
-          cp -r build/Build/Products/Release-iphoneos/StarkOS.app Payload/
-          zip -r9 StarkOS-iOS.ipa Payload
+          cp -r build/Build/Products/Release-iphoneos/DoomAi.app Payload/
+          zip -r9 DoomAi-iOS.ipa Payload
 
-      - name: Carica Artifact StarkOS-iOS.ipa (Scaricabile su Windows)
+      - name: Carica Artifact DoomAi-iOS.ipa (Scaricabile su Windows)
         uses: actions/upload-artifact@v4
         with:
-          name: StarkOS-iOS-IPA
-          path: ios-native/StarkOS-iOS.ipa
+          name: DoomAi-iOS-IPA
+          path: ios-native/DoomAi-iOS.ipa
           retention-days: 30
