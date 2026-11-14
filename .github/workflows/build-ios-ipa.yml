@@ -8,7 +8,7 @@ on:
 jobs:
   build-ios-ipa:
     name: Compila StarkOS.ipa su Cloud macOS (Zero-Mac)
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
