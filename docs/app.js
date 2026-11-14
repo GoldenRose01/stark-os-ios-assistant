@@ -10,15 +10,14 @@
     hasNativeBridge: Boolean(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.doomNative),
     apuTelemetry: {
       engine: 'A18 Pro 16-Core Neural Engine',
-      cores: navigator.hardwareConcurrency || 6,
-      webgpu: true
+      cores: navigator.hardwareConcurrency || 6
     },
     apiConfig: JSON.parse(localStorage.getItem('doom_api_config') || '{}'),
     tasks: JSON.parse(
       localStorage.getItem('doom_tasks') ||
         JSON.stringify([
-          { id: 't1', text: 'Pronuncia "Ehi Siri, chiedi a Doom con DoomAi"', done: false },
-          { id: 't2', text: 'Testa modalità Offline (Modalità Aereo) sull\'APU A18 Pro', done: false }
+          { id: 't1', text: 'Configura API ChatGPT o API Gemini nella scheda Motore & APU', done: false },
+          { id: 't2', text: 'Attiva il Comando Rapido Siri "Chiedi a Doom" nella scheda Siri & OTA', done: false }
         ])
     ),
     memory: JSON.parse(
@@ -36,33 +35,31 @@
       category: 'DOSSIER SOVRANO LATVERIA (VAULT OFFLINE)',
       title: 'Victor Von Doom — Doctor Doom',
       summary:
-        'Sovrano di Latveria, genio scientifico e maestro delle arti mistiche e cibernetiche. L\'architettura DoomAi unisce la precisione analitica di J.A.R.V.I.S. e la rete tattica E.D.I.T.H. sotto un unico comando sovrano con esecuzione ibrida Offline APU + Cloud.'
+        'Sovrano di Latveria, genio scientifico e maestro delle arti cibernetiche. L\'architettura DoomAi unisce la precisione analitica di J.A.R.V.I.S. e la rete satellitare E.D.I.T.H. sotto un unico comando neurale con esecuzione ibrida ChatGPT + Gemini + Offline APU.'
     },
     jarvis: {
       category: 'PROTOCOLLO OPERATIVO PRIMARIO (VAULT OFFLINE)',
       title: 'J.A.R.V.I.S. — Just A Rather Very Intelligent System',
       summary:
-        'Modulo analitico e gestionale attivo in DoomAi. In assenza di rete, esegue calcoli sul co-processore matematico, gestisce task e promemoria vocali, interroga la memoria contestuale e risponde tramite il sintetizzatore vocale nativo di iOS.'
+        'Modulo analitico e gestionale attivo in DoomAi. Esegue calcoli sul co-processore matematico, gestisce task e promemoria vocali, interroga ChatGPT/Gemini e risponde tramite il sintetizzatore vocale nativo di iOS.'
     },
     edith: {
-      category: 'PROTOCOLLO TATTICO SECONDARIO (VAULT OFFLINE)',
+      category: 'PROTOCOLLO SATELLITARE SECONDARIO (VAULT OFFLINE)',
       title: 'E.D.I.T.H. — Even Dead, I\'m The Hero',
       summary:
-        'Assetto tattico ad alto contrasto (Cremisi & Oro) progettato per ricognizione rapida, telemetria hardware A18 Pro e accesso immediato ai dossier salvati localmente.'
+        'Rete satellitare ad alto contrasto (Cremisi & Oro) progettata per ricognizione rapida, telemetria neurale A18 Pro e accesso immediato ai dossier salvati localmente.'
     },
     apu: {
       category: 'ARCHITETTURA HARDWARE iPHONE 16 PRO MAX (OFFLINE)',
       title: 'Apple A18 Pro — 16-Core Neural Engine (35+ TOPS)',
       summary:
-        'Il chip A18 Pro dell\'iPhone 16 Pro Max integra un Neural Engine a 16-Core capace di 35 trilioni di operazioni al secondo, permettendo a DoomAi di eseguire riconoscimento vocale italiano, sintesi vocale, classificazione degli intenti (NLTagger/CoreML) e calcoli completamente offline.'
+        'Il chip A18 Pro dell\'iPhone 16 Pro Max integra un Neural Engine a 16-Core capace di 35 trilioni di operazioni al secondo, permettendo a DoomAi di eseguire riconoscimento vocale italiano, sintesi vocale e calcoli completamente offline.'
     }
   };
 
   // DOM Elements
   const bodyEl = document.body;
   const systemHeaderTitle = document.getElementById('systemHeaderTitle');
-  const systemHeaderSub = document.getElementById('systemHeaderSub');
-  const reactorPanelTitle = document.getElementById('reactorPanelTitle');
   const voiceStateBadge = document.getElementById('voiceStateBadge');
   const voiceStatusText = document.getElementById('voiceStatusText');
   const commandForm = document.getElementById('commandForm');
@@ -86,13 +83,13 @@
     return false;
   }
 
-  // Dynamic Viewport Calibration Engine (Adapts placeholders to any iPhone / iPad / Desktop screen)
+  // Dynamic Viewport Calibration Engine (Adapts top-center Head & Satellite Grid to any iPhone screen)
   function calibrateDynamicViewport() {
     const vv = window.visualViewport;
     const vw = Math.round(vv ? vv.width : window.innerWidth || document.documentElement.clientWidth || 430);
     const vh = Math.round(vv ? vv.height : window.innerHeight || document.documentElement.clientHeight || 932);
-    const reactorPx = Math.max(132, Math.min(176, Math.round(vw * 0.38)));
-    const maskPx = Math.round(reactorPx * 0.54);
+    const reactorPx = Math.max(196, Math.min(256, Math.round(vw * 0.56)));
+    const maskPx = Math.round(reactorPx * 0.42);
 
     const root = document.documentElement;
     root.style.setProperty('--vw-px', `${vw}px`);
@@ -116,26 +113,26 @@
   function updateConnectivityBadge() {
     state.isOnline = navigator.onLine !== false;
     if (telemetrySiri) {
-      telemetrySiri.textContent = state.isOnline ? 'OTA GitHub + Offline Ready' : 'MODALITÀ OFFLINE (APU)';
+      telemetrySiri.textContent = state.isOnline ? 'OTA v4.2 // LIVE' : 'OFFLINE APU';
     }
     const btnOta = document.getElementById('btnOtaReload');
     if (btnOta) {
-      btnOta.textContent = state.isOnline ? 'Sync GitHub' : 'Offline APU';
+      btnOta.textContent = state.isOnline ? 'Sync GitHub' : 'Offline';
     }
   }
 
   window.addEventListener('online', updateConnectivityBadge);
   window.addEventListener('offline', updateConnectivityBadge);
 
-  // Receive callbacks from Native iOS IPA Shell (SFSpeechRecognizer, Native APU, etc.)
+  // Receive callbacks from Native iOS IPA Shell (SFSpeechRecognizer, Siri URL Scheme doomai://, OTA Sync)
   window.onDoomNativeEvent = (event) => {
     if (!event || !event.type) return;
     if (event.type === 'voicePartial') {
-      voiceStatusText.textContent = event.transcript || 'In ascolto...';
+      voiceStatusText.textContent = event.transcript || 'Acquisizione neurale in corso...';
       commandInput.value = event.transcript || '';
     } else if (event.type === 'voiceFinal') {
       state.isListening = false;
-      voiceStateBadge.textContent = 'PRONTO';
+      voiceStateBadge.textContent = 'NEURAL GRID ATTIVA';
       btnToggleMic.textContent = 'Ascolto Vocale';
       btnToggleMic.classList.remove('btn-listening');
       if (event.transcript && event.transcript.trim()) {
@@ -144,15 +141,28 @@
       }
     } else if (event.type === 'voiceState') {
       state.isListening = Boolean(event.isRecording);
-      voiceStateBadge.textContent = state.isListening ? 'IN ASCOLTO' : 'PRONTO';
-      btnToggleMic.textContent = state.isListening ? 'Ferma Ascolto' : 'Ascolto Vocale';
+      voiceStateBadge.textContent = state.isListening ? 'ASCOLTO SATELLITARE' : 'NEURAL GRID ATTIVA';
+      btnToggleMic.textContent = state.isListening ? 'Ferma' : 'Ascolto Vocale';
       btnToggleMic.classList.toggle('btn-listening', state.isListening);
       if (event.message) voiceStatusText.textContent = event.message;
     } else if (event.type === 'otaStatus') {
       const btnOta = document.getElementById('btnOtaReload');
       if (btnOta && event.message) {
         btnOta.textContent = event.message;
-        setTimeout(updateConnectivityBadge, 2500);
+        setTimeout(updateConnectivityBadge, 2800);
+      }
+    } else if (event.type === 'siriUrlQuery') {
+      // Triggered when iOS opens doomai://ask?q=... or doomai://voice from Siri Shortcuts!
+      document.querySelectorAll('.nav-tab').forEach((t) => t.classList.remove('active'));
+      document.querySelectorAll('.workspace-view').forEach((v) => v.classList.remove('active'));
+      document.getElementById('tab-hud')?.classList.add('active');
+      document.getElementById('view-hud')?.classList.add('active');
+
+      if (event.mode === 'voice') {
+        setTimeout(() => toggleMicrophone(), 250);
+      } else if (event.query && event.query.trim()) {
+        commandInput.value = event.query.trim();
+        submitQuery(event.query.trim());
       }
     }
   };
@@ -169,22 +179,37 @@
   }
 
   // 1. Hardware APU / Neural Engine Detection
-  async function detectHardwareAPU() {
+  function detectHardwareAPU() {
     const cores = navigator.hardwareConcurrency || 6;
     const isNativeIpa = Boolean(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.doomNative);
-    const engineLabel = isNativeIpa
-      ? `A18 Pro 16-Core ANE (${cores} Core IPA)`
-      : `Apple Neural Engine / WebGPU (${cores} Core)`;
+    const engineLabel = isNativeIpa ? `A18 Pro ANE (${cores} Core)` : `Neural Engine (${cores} Core)`;
 
     state.apuTelemetry = { engine: engineLabel, cores };
     if (telemetryApu) telemetryApu.textContent = engineLabel;
     const apuSummaryEl = document.getElementById('apuDeviceSummary');
     const metricWebGpu = document.getElementById('metricWebGpu');
     const metricCores = document.getElementById('metricCores');
-    if (apuSummaryEl) apuSummaryEl.textContent = engineLabel;
-    if (metricWebGpu) metricWebGpu.textContent = isNativeIpa ? 'Bridge IPA + Cache Offline' : 'WebGPU Attivo';
+    if (apuSummaryEl) apuSummaryEl.textContent = `Apple ${engineLabel}`;
+    if (metricWebGpu) metricWebGpu.textContent = isNativeIpa ? 'Connesso (IPA v4)' : 'Browser Mode';
     if (metricCores) metricCores.textContent = `${cores} Core Attivi`;
+    updateApiStatusBadges();
     updateConnectivityBadge();
+  }
+
+  function updateApiStatusBadges() {
+    const hasOpenai = Boolean(state.apiConfig.openaiKey && state.apiConfig.openaiKey.trim());
+    const hasGemini = Boolean(state.apiConfig.geminiKey && state.apiConfig.geminiKey.trim());
+    const elOpenai = document.getElementById('metricChatGptState');
+    const elGemini = document.getElementById('metricGeminiState');
+    if (elOpenai) elOpenai.textContent = hasOpenai ? 'Attiva (OpenAI)' : 'Non inserita';
+    if (elGemini) elGemini.textContent = hasGemini ? 'Attiva (Gemini)' : 'Non inserita';
+
+    if (telemetryProvider) {
+      if (hasOpenai && hasGemini) telemetryProvider.textContent = 'ChatGPT + Gemini';
+      else if (hasOpenai) telemetryProvider.textContent = 'API ChatGPT';
+      else if (hasGemini) telemetryProvider.textContent = 'API Gemini';
+      else telemetryProvider.textContent = 'APU + Live RAG';
+    }
   }
 
   // 2. Persona Switching
@@ -197,15 +222,11 @@
     document.getElementById('btnPersonaEdith').classList.toggle('active', state.persona === 'edith');
 
     if (state.persona === 'edith') {
-      systemHeaderTitle.textContent = 'DOOM AI // E.D.I.T.H. TACTICAL';
-      systemHeaderSub.textContent = 'ASSETTO OTTICO AR // OFFLINE APU + OTA GITHUB';
-      reactorPanelTitle.textContent = 'Reticolo Tattico E.D.I.T.H.';
-      commandInput.placeholder = 'Inserisci bersaglio per E.D.I.T.H. (anche Offline)...';
+      systemHeaderTitle.textContent = 'DOOM AI // E.D.I.T.H. SATELLITE NET';
+      commandInput.placeholder = 'Ordina alla rete satellitare E.D.I.T.H. (ChatGPT, Gemini, APU)...';
     } else {
-      systemHeaderTitle.textContent = 'DOOM AI // SOVEREIGN HUD';
-      systemHeaderSub.textContent = 'A18 PRO 16-CORE APU // OFFLINE + OTA LIVE GITHUB';
-      reactorPanelTitle.textContent = 'Nucleo Imperiale DoomAi';
-      commandInput.placeholder = 'Ordina a DoomAi (funziona Online e Offline su APU)...';
+      systemHeaderTitle.textContent = 'DOOM AI // NEURAL SOVEREIGN';
+      commandInput.placeholder = 'Ordina a DoomAi (ChatGPT, Gemini, Meteo, Dossier, Calcoli)...';
     }
     syncStateToNativeIPA();
   }
@@ -213,15 +234,15 @@
   document.getElementById('btnPersonaJarvis').addEventListener('click', () => applyPersona('jarvis'));
   document.getElementById('btnPersonaEdith').addEventListener('click', () => applyPersona('edith'));
 
-  // OTA Instant Reload from GitHub (saves local copy on iPhone disk for offline use!)
+  // OTA Instant Reload from GitHub (bypasses cache & updates local iPhone flash storage)
   const btnOtaReload = document.getElementById('btnOtaReload');
   if (btnOtaReload) {
     btnOtaReload.addEventListener('click', () => {
       if (!navigator.onLine) {
-        btnOtaReload.textContent = 'Modalità Offline Attiva';
+        btnOtaReload.textContent = 'Offline';
         return;
       }
-      btnOtaReload.textContent = 'Sync GitHub...';
+      btnOtaReload.textContent = 'Sync...';
       if (!postToNativeBridge({ action: 'reloadOTA' })) {
         const url = new URL(window.location.href);
         url.searchParams.set('ota', String(Date.now()));
@@ -242,10 +263,25 @@
     });
   });
 
-  // 4. Animated 60fps Canvas Golden Reactor Rings
+  // 4. TOP-CENTER CIRCULAR NEURAL SATELLITE GRID ANIMATION (60fps Canvas around Doctor Doom Head)
   const canvas = document.getElementById('reactorCanvas');
   const ctx = canvas.getContext('2d');
   let phase = 0;
+
+  // Create 16 Orbital Neural Satellites across 3 concentric rings around the Head
+  const neuralSatellites = Array.from({ length: 16 }, (_, idx) => {
+    const ringIndex = idx % 3; // 0 = inner, 1 = mid, 2 = outer
+    const baseRadius = ringIndex === 0 ? 142 : ringIndex === 1 ? 186 : 228;
+    const direction = ringIndex === 1 ? -1 : 1;
+    return {
+      angle: (idx * Math.PI * 2) / 16 + (ringIndex * 0.35),
+      baseRadius,
+      speed: direction * (0.0055 + (idx % 5) * 0.0018),
+      size: ringIndex === 2 ? 3.8 : 4.6,
+      pulseOffset: idx * 0.9,
+      ringIndex
+    };
+  });
 
   function renderReactor() {
     const w = canvas.width;
@@ -255,51 +291,132 @@
     ctx.clearRect(0, 0, w, h);
 
     const isEdith = state.persona === 'edith';
-    const primaryColor = isEdith ? '#fb7185' : '#f0c138';
-    const secondaryColor = isEdith ? '#f0c138' : '#d97706';
-    const speedMultiplier = state.isListening || state.isSpeaking || state.isProcessing ? 2.8 : 1.0;
-    phase += 0.018 * speedMultiplier;
+    const isActiveNeural = state.isListening || state.isSpeaking || state.isProcessing;
+    const primaryHex = isEdith ? '#fb7185' : '#f0c138';
+    const secondaryHex = isEdith ? '#f0c138' : '#38bdf8';
+    const primaryRgb = isEdith ? '251, 113, 133' : '240, 193, 56';
+    const secondaryRgb = isEdith ? '240, 193, 56' : '56, 189, 248';
 
+    const speedMult = isActiveNeural ? 2.9 : 1.0;
+    phase += 0.016 * speedMult;
+
+    // A) Circular Polar Radar Grid (Concentric Orbital Rings + Radial Meridians)
+    const gridRadii = [118, 144, 186, 228];
+    gridRadii.forEach((r, idx) => {
+      ctx.save();
+      ctx.beginPath();
+      if (idx % 2 === 1) {
+        ctx.setLineDash([4, 8]);
+      }
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${primaryRgb}, ${isActiveNeural ? 0.32 : 0.18})`;
+      ctx.lineWidth = idx === 0 ? 1.8 : 1.1;
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    // Radial Meridian Spokes (12 sectors symbolizing the circular satellite grid)
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.rotate(phase * 0.5);
-    ctx.strokeStyle = primaryColor;
-    ctx.lineWidth = 3.5;
-    const segments = isEdith ? 6 : 12;
-    for (let i = 0; i < segments; i++) {
-      const startAngle = (i * 2 * Math.PI) / segments + 0.08;
-      const endAngle = ((i + 0.65) * 2 * Math.PI) / segments;
+    ctx.rotate(phase * 0.12);
+    for (let i = 0; i < 12; i++) {
+      const a = (i * Math.PI) / 6;
       ctx.beginPath();
-      ctx.arc(0, 0, 168, startAngle, endAngle);
+      ctx.moveTo(Math.cos(a) * 112, Math.sin(a) * 112);
+      ctx.lineTo(Math.cos(a) * 238, Math.sin(a) * 238);
+      ctx.strokeStyle = `rgba(${primaryRgb}, 0.12)`;
+      ctx.lineWidth = 1;
       ctx.stroke();
     }
     ctx.restore();
 
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(-phase * 0.85);
-    ctx.strokeStyle = secondaryColor;
-    ctx.lineWidth = 2.2;
-    for (let i = 0; i < 8; i++) {
-      const startAngle = (i * 2 * Math.PI) / 8;
-      const endAngle = startAngle + 0.45;
-      ctx.beginPath();
-      ctx.arc(0, 0, 138, startAngle, endAngle);
-      ctx.stroke();
-    }
-    ctx.restore();
+    // B) Compute Current Positions of All 16 Orbiting Neural Satellites
+    const satCoords = neuralSatellites.map((sat) => {
+      sat.angle += sat.speed * speedMult;
+      const radialWave = Math.sin(phase * 2.2 + sat.pulseOffset) * (isActiveNeural ? 7 : 3);
+      const r = sat.baseRadius + radialWave;
+      return {
+        x: cx + Math.cos(sat.angle) * r,
+        y: cy + Math.sin(sat.angle) * r,
+        size: sat.size,
+        ringIndex: sat.ringIndex,
+        pulse: 0.5 + 0.5 * Math.sin(phase * 3.4 + sat.pulseOffset)
+      };
+    });
 
-    const pulseRadius = 108 + Math.sin(phase * 2.6) * (state.isListening || state.isSpeaking ? 14 : 4);
+    // C) Draw Synaptic Neural Mesh Links Between Nearby Satellites
+    for (let i = 0; i < satCoords.length; i++) {
+      for (let j = i + 1; j < satCoords.length; j++) {
+        const a = satCoords[i];
+        const b = satCoords[j];
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const dist = Math.hypot(dx, dy);
+        const maxDist = isActiveNeural ? 148 : 122;
+
+        if (dist < maxDist) {
+          const alpha = (1 - dist / maxDist) * (isActiveNeural ? 0.65 : 0.36);
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = (i + j) % 3 === 0 ? `rgba(${secondaryRgb}, ${alpha})` : `rgba(${primaryRgb}, ${alpha})`;
+          ctx.lineWidth = isActiveNeural ? 1.5 : 1.0;
+          ctx.stroke();
+        }
+      }
+    }
+
+    // D) Draw Neural Impulse Beams from Satellites into the Central Doctor Doom Head
+    satCoords.forEach((sat, idx) => {
+      if (sat.pulse > (isActiveNeural ? 0.45 : 0.76)) {
+        const dx = sat.x - cx;
+        const dy = sat.y - cy;
+        const angle = Math.atan2(dy, dx);
+        const headEdgeX = cx + Math.cos(angle) * 112;
+        const headEdgeY = cy + Math.sin(angle) * 112;
+
+        ctx.beginPath();
+        ctx.moveTo(sat.x, sat.y);
+        ctx.lineTo(headEdgeX, headEdgeY);
+        ctx.strokeStyle = idx % 2 === 0 ? `rgba(${primaryRgb}, 0.55)` : `rgba(${secondaryRgb}, 0.55)`;
+        ctx.lineWidth = isActiveNeural ? 1.8 : 1.1;
+        ctx.stroke();
+
+        // Traveling synaptic packet dot along the beam
+        const t = (phase * 1.9 + idx * 0.3) % 1;
+        const px = sat.x + (headEdgeX - sat.x) * t;
+        const py = sat.y + (headEdgeY - sat.y) * t;
+        ctx.beginPath();
+        ctx.arc(px, py, 2.4, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+      }
+    });
+
+    // E) Render Each Satellite Node with Orbital Glow Halo
+    satCoords.forEach((sat, idx) => {
+      const haloRadius = sat.size * (2.1 + sat.pulse * (isActiveNeural ? 1.8 : 0.9));
+      ctx.beginPath();
+      ctx.arc(sat.x, sat.y, haloRadius, 0, Math.PI * 2);
+      ctx.fillStyle = idx % 3 === 0 ? `rgba(${secondaryRgb}, 0.24)` : `rgba(${primaryRgb}, 0.26)`;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(sat.x, sat.y, sat.size, 0, Math.PI * 2);
+      ctx.fillStyle = idx % 3 === 0 ? secondaryHex : primaryHex;
+      ctx.fill();
+
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+    });
+
+    // F) Inner Neural Crown Ring directly framing the Golden Doom Mask
+    const crownRadius = 113 + Math.sin(phase * 3) * (isActiveNeural ? 5 : 2);
     ctx.beginPath();
-    ctx.arc(cx, cy, pulseRadius, 0, Math.PI * 2);
-    ctx.fillStyle = state.isListening
-      ? 'rgba(244, 63, 94, 0.22)'
-      : isEdith
-      ? 'rgba(251, 113, 133, 0.14)'
-      : 'rgba(240, 193, 56, 0.16)';
-    ctx.fill();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = state.isListening ? '#f43f5e' : primaryColor;
+    ctx.arc(cx, cy, crownRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = state.isListening ? '#f43f5e' : primaryHex;
+    ctx.lineWidth = 2.8;
     ctx.stroke();
 
     requestAnimationFrame(renderReactor);
@@ -327,7 +444,7 @@
   btnToggleTts.addEventListener('click', () => {
     state.ttsEnabled = !state.ttsEnabled;
     localStorage.setItem('doom_tts', String(state.ttsEnabled));
-    btnToggleTts.textContent = `Voce AI: ${state.ttsEnabled ? 'ON' : 'OFF'}`;
+    btnToggleTts.textContent = `Voce: ${state.ttsEnabled ? 'ON' : 'OFF'}`;
     if (!state.ttsEnabled) {
       postToNativeBridge({ action: 'stopSpeak' });
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
@@ -347,9 +464,9 @@
 
     recognition.onstart = () => {
       state.isListening = true;
-      voiceStateBadge.textContent = 'IN ASCOLTO';
-      voiceStatusText.textContent = 'Parla ora... DoomAi sta acquisendo il segnale vocale.';
-      btnToggleMic.textContent = 'Ferma Ascolto';
+      voiceStateBadge.textContent = 'ASCOLTO SATELLITARE';
+      voiceStatusText.textContent = 'Parla ora... la griglia neurale sta acquisendo la tua voce.';
+      btnToggleMic.textContent = 'Ferma';
       btnToggleMic.classList.add('btn-listening');
     };
 
@@ -363,14 +480,14 @@
 
     recognition.onerror = () => {
       state.isListening = false;
-      voiceStateBadge.textContent = 'PRONTO';
+      voiceStateBadge.textContent = 'NEURAL GRID ATTIVA';
       btnToggleMic.textContent = 'Ascolto Vocale';
       btnToggleMic.classList.remove('btn-listening');
     };
 
     recognition.onend = () => {
       state.isListening = false;
-      if (!state.isProcessing) voiceStateBadge.textContent = 'PRONTO';
+      if (!state.isProcessing) voiceStateBadge.textContent = 'NEURAL GRID ATTIVA';
       btnToggleMic.textContent = 'Ascolto Vocale';
       btnToggleMic.classList.remove('btn-listening');
     };
@@ -395,11 +512,84 @@
   btnToggleMic.addEventListener('click', toggleMicrophone);
   document.getElementById('reactorTouchArea').addEventListener('click', toggleMicrophone);
 
-  // 7. Hybrid Online + 100% Offline APU Engine
+  // Helper: Query OpenAI ChatGPT API (gpt-4o-mini)
+  async function callOpenAIChatGPT(query, persona, startTime) {
+    const apiKey = (state.apiConfig.openaiKey || '').trim();
+    if (!apiKey) return null;
+    const sys =
+      persona === 'edith'
+        ? 'Sei E.D.I.T.H. nel sistema neurale DoomAi su iPhone 16 Pro Max. Rispondi in italiano in modo tattico, diretto e preciso.'
+        : 'Sei J.A.R.V.I.S. nel sistema sovrano DoomAi su iPhone 16 Pro Max. Rispondi in italiano con stile elegante ("Agli ordini, Signore") e completo.';
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: query }
+        ],
+        temperature: 0.5
+      })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const reply = data?.choices?.[0]?.message?.content;
+    if (!reply) return null;
+    return {
+      ok: true,
+      persona,
+      speech: reply.replace(/[#*`_~>-]/g, '').slice(0, 480),
+      display: reply,
+      provider: 'API ChatGPT (OpenAI GPT-4o)',
+      latencyMs: Date.now() - startTime,
+      cards: []
+    };
+  }
+
+  // Helper: Query Google Gemini API (gemini-2.5-flash)
+  async function callGoogleGemini(query, persona, startTime) {
+    const apiKey = (state.apiConfig.geminiKey || '').trim();
+    if (!apiKey) return null;
+    const sys =
+      persona === 'edith'
+        ? 'Sei E.D.I.T.H. nel sistema neurale DoomAi su iPhone 16 Pro Max. Rispondi in italiano in modo tattico, diretto e preciso.'
+        : 'Sei J.A.R.V.I.S. nel sistema sovrano DoomAi su iPhone 16 Pro Max. Rispondi in italiano con stile elegante ("Agli ordini, Signore") e completo.';
+    const gemRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: sys }] },
+          contents: [{ role: 'user', parts: [{ text: query }] }]
+        })
+      }
+    );
+    if (!gemRes.ok) return null;
+    const gemData = await gemRes.json();
+    const reply = gemData?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!reply) return null;
+    return {
+      ok: true,
+      persona,
+      speech: reply.replace(/[#*`_~>-]/g, '').slice(0, 480),
+      display: reply,
+      provider: 'API Gemini (Gemini 2.5 Flash)',
+      latencyMs: Date.now() - startTime,
+      cards: []
+    };
+  }
+
+  // 7. Hybrid Online (ChatGPT + Gemini + Meteo + Wikipedia) + 100% Offline APU Engine
   async function runStandaloneOnDeviceQuery(query) {
     const startTime = Date.now();
     const persona = state.persona;
     const lower = query.toLowerCase();
+    const routingMode = state.apiConfig.routingMode || 'auto';
 
     // A) Task / Memory Add Commands (100% Offline Ready)
     if (/^(aggiungi task|crea promemoria|ricordami di|ricordami|aggiungi nota|memorizza che|memorizza)/i.test(lower)) {
@@ -410,7 +600,7 @@
       const speech =
         persona === 'edith'
           ? `Ricevuto. Ho registrato nel database tattico locale: "${extracted}".`
-          : `Agli ordini, Signore. Ho annotato "${extracted}" nella memoria offline di DoomAi.`;
+          : `Agli ordini, Signore. Ho annotato "${extracted}" nella memoria neurale di DoomAi.`;
       return {
         ok: true,
         persona,
@@ -430,7 +620,7 @@
     }
 
     // B) Read Tasks / Memories / Briefing Commands (100% Offline Ready)
-    if (/\b(quali sono i miei task|mostra i task|mostra promemoria|cosa devo fare|leggi memoria|cosa ricordi|briefing)\b/i.test(lower)) {
+    if (/\b(quali sono i miei task|mostra i task|mostra i miei task|mostra promemoria|cosa devo fare|leggi memoria|cosa ricordi|briefing)\b/i.test(lower)) {
       const activeTasks = state.tasks.filter((t) => !t.done).map((t) => t.text);
       const memFacts = state.memory.map((m) => m.text);
       const taskSummary =
@@ -458,7 +648,7 @@
       };
     }
 
-    // C) Local APU Math Co-Processor & Unit Conversions (100% Offline Ready, Zero eval/Function)
+    // C) Local APU Math Co-Processor (100% Offline Ready, Zero eval/Function)
     const cleanMath = query
       .toLowerCase()
       .replace(/quanto fa|calcola|risolvi|\?/g, ' ')
@@ -525,7 +715,110 @@
       } catch (_) {}
     }
 
-    // D) Check Built-in Offline Dossiers (Doctor Doom, Jarvis, Edith, APU)
+    // D) Online Modules (ChatGPT, Gemini, Open-Meteo, Wikipedia) with automatic Local Dossier Cache
+    const cachedDossiers = JSON.parse(localStorage.getItem('doom_offline_cache') || '{}');
+
+    if (navigator.onLine && routingMode !== 'offline') {
+      // 1. Live Weather via Open-Meteo
+      if (/\b(meteo|tempo|temperatura|piove|previsioni)\b/i.test(lower)) {
+        const cityMatch =
+          query.match(/(?:meteo|tempo|temperatura|previsioni)\s+(?:a|di|per|su|in)?\s*([a-zA-ZÀ-ÿ\s]{2,25})/i) || [];
+        const targetCity =
+          (cityMatch[1] || 'Roma').replace(/\b(oggi|domani|adesso|ora|live|in tempo reale)\b/gi, '').trim() || 'Roma';
+        try {
+          const geoRes = await fetch(
+            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(targetCity)}&count=1&language=it&format=json`
+          );
+          const geo = await geoRes.json();
+          if (geo?.results?.length > 0) {
+            const p = geo.results[0];
+            const wxRes = await fetch(
+              `https://api.open-meteo.com/v1/forecast?latitude=${p.latitude}&longitude=${p.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,surface_pressure`
+            );
+            const wx = await wxRes.json();
+            if (wx?.current) {
+              const c = wx.current;
+              const cityLabel = `${p.name}${p.country ? ', ' + p.country : ''}`;
+              const speech =
+                persona === 'edith'
+                  ? `Scansione satellitare su ${cityLabel}: ${c.temperature_2m} gradi Celsius, umidità ${c.relative_humidity_2m} percento, vento a ${c.wind_speed_10m} chilometri orari.`
+                  : `Signore, la telemetria meteo live su ${cityLabel} rileva ${c.temperature_2m} gradi Celsius, percepita ${c.apparent_temperature} gradi e vento a ${c.wind_speed_10m} chilometri orari.`;
+              const resultObj = {
+                ok: true,
+                persona,
+                speech,
+                display: `### Scansione Atmosferica — ${cityLabel}\n\nTemperatura attuale di **${c.temperature_2m}°C** (percepita ${c.apparent_temperature}°C), umidità al **${c.relative_humidity_2m}%** e vento a **${c.wind_speed_10m} km/h**.`,
+                provider: `${state.apuTelemetry.engine} + Open-Meteo Live`,
+                latencyMs: Date.now() - startTime,
+                cards: [
+                  {
+                    category: 'TELEMETRIA METEO SATELLITARE LIVE',
+                    title: `Situazione Atmosferica: ${cityLabel}`,
+                    summary: `Temperatura ${c.temperature_2m}°C, umidità ${c.relative_humidity_2m}%, pressione ${c.surface_pressure} hPa.`,
+                    metrics: [
+                      { label: 'Temperatura', value: `${c.temperature_2m} °C` },
+                      { label: 'Percepita', value: `${c.apparent_temperature} °C` },
+                      { label: 'Umidità', value: `${c.relative_humidity_2m}%` },
+                      { label: 'Vento', value: `${c.wind_speed_10m} km/h` }
+                    ]
+                  }
+                ]
+              };
+              cachedDossiers[lower] = resultObj;
+              localStorage.setItem('doom_offline_cache', JSON.stringify(cachedDossiers));
+              return resultObj;
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 2. Direct API ChatGPT (OpenAI) or API Gemini (Google) based on preference
+      try {
+        if (routingMode === 'chatgpt') {
+          const gptRes = await callOpenAIChatGPT(query, persona, startTime);
+          if (gptRes) {
+            cachedDossiers[lower] = gptRes;
+            localStorage.setItem('doom_offline_cache', JSON.stringify(cachedDossiers));
+            return gptRes;
+          }
+          const gemRes = await callGoogleGemini(query, persona, startTime);
+          if (gemRes) {
+            cachedDossiers[lower] = gemRes;
+            localStorage.setItem('doom_offline_cache', JSON.stringify(cachedDossiers));
+            return gemRes;
+          }
+        } else if (routingMode === 'gemini') {
+          const gemRes = await callGoogleGemini(query, persona, startTime);
+          if (gemRes) {
+            cachedDossiers[lower] = gemRes;
+            localStorage.setItem('doom_offline_cache', JSON.stringify(cachedDossiers));
+            return gemRes;
+          }
+          const gptRes = await callOpenAIChatGPT(query, persona, startTime);
+          if (gptRes) {
+            cachedDossiers[lower] = gptRes;
+            localStorage.setItem('doom_offline_cache', JSON.stringify(cachedDossiers));
+            return gptRes;
+          }
+        } else {
+          // Auto: try ChatGPT if present, then Gemini if present
+          const gptRes = await callOpenAIChatGPT(query, persona, startTime);
+          if (gptRes) {
+            cachedDossiers[lower] = gptRes;
+            localStorage.setItem('doom_offline_cache', JSON.stringify(cachedDossiers));
+            return gptRes;
+          }
+          const gemRes = await callGoogleGemini(query, persona, startTime);
+          if (gemRes) {
+            cachedDossiers[lower] = gemRes;
+            localStorage.setItem('doom_offline_cache', JSON.stringify(cachedDossiers));
+            return gemRes;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // E) Check Built-in Offline Dossiers (Doctor Doom, Jarvis, Edith, APU)
     if (lower.includes('destino') || lower.includes('doctor doom') || lower === 'doom') {
       const d = OFFLINE_DOSSIERS.doom;
       return {
@@ -575,101 +868,8 @@
       };
     }
 
-    // E) Online Modules (Open-Meteo, Gemini, Wikipedia) with automatic Local Dossier Cache for Offline Recall!
-    const cachedDossiers = JSON.parse(localStorage.getItem('doom_offline_cache') || '{}');
-
-    if (navigator.onLine) {
-      // 1. Live Weather via Open-Meteo
-      if (/\b(meteo|tempo|temperatura|piove|previsioni)\b/i.test(lower)) {
-        const cityMatch =
-          query.match(/(?:meteo|tempo|temperatura|previsioni)\s+(?:a|di|per|su|in)?\s*([a-zA-ZÀ-ÿ\s]{2,25})/i) || [];
-        const targetCity =
-          (cityMatch[1] || 'Roma').replace(/\b(oggi|domani|adesso|ora|live|in tempo reale)\b/gi, '').trim() || 'Roma';
-        try {
-          const geoRes = await fetch(
-            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(targetCity)}&count=1&language=it&format=json`
-          );
-          const geo = await geoRes.json();
-          if (geo?.results?.length > 0) {
-            const p = geo.results[0];
-            const wxRes = await fetch(
-              `https://api.open-meteo.com/v1/forecast?latitude=${p.latitude}&longitude=${p.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,surface_pressure`
-            );
-            const wx = await wxRes.json();
-            if (wx?.current) {
-              const c = wx.current;
-              const cityLabel = `${p.name}${p.country ? ', ' + p.country : ''}`;
-              const speech =
-                persona === 'edith'
-                  ? `Scansione atmosferica su ${cityLabel}: ${c.temperature_2m} gradi Celsius, umidità ${c.relative_humidity_2m} percento, vento a ${c.wind_speed_10m} chilometri orari.`
-                  : `Signore, la telemetria meteo live su ${cityLabel} rileva ${c.temperature_2m} gradi Celsius, percepita ${c.apparent_temperature} gradi e vento a ${c.wind_speed_10m} chilometri orari.`;
-              const resultObj = {
-                ok: true,
-                persona,
-                speech,
-                display: `### Scansione Atmosferica — ${cityLabel}\n\nTemperatura attuale di **${c.temperature_2m}°C** (percepita ${c.apparent_temperature}°C), umidità al **${c.relative_humidity_2m}%** e vento a **${c.wind_speed_10m} km/h**.`,
-                provider: `${state.apuTelemetry.engine} + Open-Meteo Live`,
-                latencyMs: Date.now() - startTime,
-                cards: [
-                  {
-                    category: 'TELEMETRIA METEO SATELLITARE LIVE',
-                    title: `Situazione Atmosferica: ${cityLabel}`,
-                    summary: `Temperatura ${c.temperature_2m}°C, umidità ${c.relative_humidity_2m}%, pressione ${c.surface_pressure} hPa.`,
-                    metrics: [
-                      { label: 'Temperatura', value: `${c.temperature_2m} °C` },
-                      { label: 'Percepita', value: `${c.apparent_temperature} °C` },
-                      { label: 'Umidità', value: `${c.relative_humidity_2m}%` },
-                      { label: 'Vento', value: `${c.wind_speed_10m} km/h` }
-                    ]
-                  }
-                ]
-              };
-              cachedDossiers[lower] = resultObj;
-              localStorage.setItem('doom_offline_cache', JSON.stringify(cachedDossiers));
-              return resultObj;
-            }
-          }
-        } catch (_) {}
-      }
-
-      // 2. Direct Gemini API call if configured
-      if (state.apiConfig.geminiKey) {
-        try {
-          const sys =
-            persona === 'edith'
-              ? 'Sei E.D.I.T.H. nel sistema DoomAi su iPhone 16 Pro Max. Rispondi in italiano in modo diretto e preciso.'
-              : 'Sei J.A.R.V.I.S. nel sistema DoomAi su iPhone 16 Pro Max. Rispondi in italiano con stile elegante ("Agli ordini, Signore") e completo.';
-          const gemRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.apiConfig.geminiKey)}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: sys }] },
-                contents: [{ role: 'user', parts: [{ text: query }] }]
-              })
-            }
-          );
-          const gemData = await gemRes.json();
-          const reply = gemData?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (reply) {
-            const resObj = {
-              ok: true,
-              persona,
-              speech: reply.replace(/[#*`_~>-]/g, '').slice(0, 480),
-              display: reply,
-              provider: 'Google Gemini 2.5 Flash + A18 Pro',
-              latencyMs: Date.now() - startTime,
-              cards: []
-            };
-            cachedDossiers[lower] = resObj;
-            localStorage.setItem('doom_offline_cache', JSON.stringify(cachedDossiers));
-            return resObj;
-          }
-        } catch (_) {}
-      }
-
-      // 3. Direct Wikipedia IT Live Search
+    // F) Direct Wikipedia IT Live Search (when online and no API key handled it)
+    if (navigator.onLine && routingMode !== 'offline') {
       const cleanTopic = query
         .replace(/^(chi è|chi era|cosa è|cos'è|che cos'è|parlami di|cerca|dimmi tutto su|informazioni su|spiegami|jarvis|edith|doom)\s+/i, '')
         .replace(/\?+$/, '')
@@ -690,8 +890,8 @@
             if (summary && summary.extract) {
               const prefix =
                 persona === 'edith'
-                  ? `Dossier ${summary.title} acquisito e salvato nel vault offline.`
-                  : `Agli ordini, Signore. Ho estratto il dossier su ${summary.title} e l'ho archiviato anche per la consultazione offline.`;
+                  ? `Dossier ${summary.title} acquisito dalla rete satellitare.`
+                  : `Agli ordini, Signore. Ho estratto il dossier su ${summary.title}.`;
               const resObj = {
                 ok: true,
                 persona,
@@ -727,7 +927,7 @@
       }
     }
 
-    // F) Check Offline Cached Dossiers from previous searches!
+    // G) Check Offline Cached Dossiers from previous searches
     if (cachedDossiers[lower]) {
       const cached = cachedDossiers[lower];
       return {
@@ -737,27 +937,27 @@
       };
     }
 
-    // G) Offline APU Local Synthesis Fallback
-    const offlineStatus = navigator.onLine ? 'Online' : 'Modalità Offline APU';
+    // H) Offline APU Local Synthesis Fallback
+    const offlineStatus = navigator.onLine ? 'Online (Inserisci API ChatGPT/Gemini per risposte libere)' : 'Modalità Offline APU';
     const fallbackSpeech =
       persona === 'edith'
-        ? `DoomAi E.D.I.T.H. [${offlineStatus}] ha elaborato "${query}" sull'APU locale. In modalità offline puoi eseguire calcoli complessi, gestire task e promemoria, chiedere il briefing vocale ("Mostra i task") e consultare tutti i dossier già archiviati.`
-        : `Signore, ho elaborato "${query}" direttamente sull'APU del suo iPhone 16 Pro Max (${offlineStatus}). Anche senza rete può ordinarmi calcoli matematici, aggiungere o leggere task e promemoria ("Mostra i miei task"), interrogare la memoria contestuale e riaprire qualsiasi dossier precedentemente cercato.`;
+        ? `Rete neurale E.D.I.T.H. ha ricevuto "${query}". Per conversazioni generative illimitate inserisci la tua chiave API ChatGPT o API Gemini nella scheda Motore e APU.`
+        : `Signore, ho elaborato "${query}" sull'APU del suo iPhone 16 Pro Max. Può inserire una chiave API ChatGPT o API Gemini nella scheda Motore e APU per attivare l'intelligenza generativa completa.`;
     return {
       ok: true,
       persona,
       speech: fallbackSpeech,
       display: fallbackSpeech,
-      provider: `${state.apuTelemetry.engine} (${offlineStatus})`,
+      provider: `${state.apuTelemetry.engine}`,
       latencyMs: Math.max(4, Date.now() - startTime),
       cards: [
         {
-          category: 'MOTORE LOCALE ON-DEVICE (OFFLINE READY)',
-          title: `Elaborazione APU: "${query.slice(0, 40)}"`,
-          summary: 'Funzioni attive senza internet: Voce Italiana, Riconoscimento Vocale, Calcoli APU, Task & Promemoria, Memoria Contestuale e Archivio Dossier Offline.',
+          category: 'MOTORE NEURALE ON-DEVICE',
+          title: `Elaborazione APU: "${query.slice(0, 38)}"`,
+          summary: 'Apri la scheda "Motore & APU" in basso per inserire la tua API ChatGPT o API Gemini.',
           metrics: [
-            { label: 'Stato Rete', value: offlineStatus },
-            { label: 'Dossier in Cache', value: `${Object.keys(cachedDossiers).length + 4} Salvati` }
+            { label: 'Stato', value: navigator.onLine ? 'Online Ready' : 'Offline APU' },
+            { label: 'Dossier Salvati', value: `${Object.keys(cachedDossiers).length + 4}` }
           ]
         }
       ]
@@ -785,7 +985,7 @@
 
     const timeStr = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const metaRight =
-      role === 'user' ? `OPERATORE // ${timeStr}` : `${provider} // ${latencyMs} ms // ${timeStr}`;
+      role === 'user' ? `OPERATORE // ${timeStr}` : `${provider} // ${latencyMs} ms`;
 
     let cardsHtml = '';
     if (Array.isArray(cards) && cards.length > 0) {
@@ -817,7 +1017,7 @@
                 </div>
                 ${thumbHtml}
               </div>
-              <div style="font-size: 13.5px; color: var(--text-secondary);">${c.summary || ''}</div>
+              <div style="font-size: 13px; color: var(--text-secondary);">${c.summary || ''}</div>
               ${metricsHtml}
               ${sourcesHtml}
             </div>
@@ -844,7 +1044,7 @@
     if (!query || state.isProcessing) return;
 
     state.isProcessing = true;
-    voiceStateBadge.textContent = 'SCANSIONE...';
+    voiceStateBadge.textContent = 'ATTIVITÀ NEURALE...';
     commandInput.value = '';
 
     appendStreamMessage({
@@ -856,10 +1056,10 @@
     const data = await runStandaloneOnDeviceQuery(query);
 
     state.isProcessing = false;
-    voiceStateBadge.textContent = 'PRONTO';
+    voiceStateBadge.textContent = 'NEURAL GRID ATTIVA';
 
-    if (data.provider) telemetryProvider.textContent = data.provider;
-    if (data.latencyMs) telemetryLatency.textContent = `${data.latencyMs} ms`;
+    if (data.provider && telemetryProvider) telemetryProvider.textContent = data.provider;
+    if (data.latencyMs && telemetryLatency) telemetryLatency.textContent = `${data.latencyMs} ms`;
 
     if (data.taskAction) {
       if (data.taskAction.type === 'MEMORY_ADD') {
@@ -878,7 +1078,7 @@
       text: data.display || data.speech,
       cards: data.cards || [],
       provider: data.provider || 'A18 Pro APU Core',
-      latencyMs: data.latencyMs || 5
+      latencyMs: data.latencyMs || 4
     });
 
     speakText(data.speech);
@@ -896,49 +1096,66 @@
     });
   });
 
-  // 10. Siri Test & Config
+  // 10. Siri Deep-Link & Shortcuts Setup
   const siriWebhookPreview = document.getElementById('siriWebhookPreview');
-  document.getElementById('btnTestSiriWebhook').addEventListener('click', async () => {
-    siriWebhookPreview.textContent = '// Simulazione risposta vocale Siri in corso...';
-    const json = await runStandaloneOnDeviceQuery('Chi è Dottor Destino');
-    siriWebhookPreview.textContent = JSON.stringify(json, null, 2);
-    speakText(json.speech);
-  });
+  const btnOpenShortcutsApp = document.getElementById('btnOpenShortcutsApp');
+  const btnTestSiriVoiceUrl = document.getElementById('btnTestSiriVoiceUrl');
+  const btnTestSiriWebhook = document.getElementById('btnTestSiriWebhook');
 
-  document.getElementById('btnCopyCurl').addEventListener('click', () => {
-    const info = `Frase Siri: "Ehi Siri, chiedi a Doom con DoomAi"\nFunziona Online (OTA GitHub) + 100% Offline su A18 Pro APU`;
-    navigator.clipboard?.writeText(info);
-    siriWebhookPreview.textContent = info;
-  });
+  if (btnOpenShortcutsApp) {
+    btnOpenShortcutsApp.addEventListener('click', () => {
+      const urlToCopy = 'doomai://ask?q=';
+      navigator.clipboard?.writeText(urlToCopy);
+      siriWebhookPreview.textContent =
+        'Copiato negli appunti: doomai://ask?q=\nApertura app Comandi Rapidi di iOS in corso...';
+      if (!postToNativeBridge({ action: 'openShortcutsApp' })) {
+        window.location.href = 'shortcuts://create-shortcut';
+      }
+    });
+  }
 
-  // 11. Engine & API Vault Configuration
+  if (btnTestSiriVoiceUrl) {
+    btnTestSiriVoiceUrl.addEventListener('click', () => {
+      window.onDoomNativeEvent({ type: 'siriUrlQuery', mode: 'voice' });
+    });
+  }
+
+  if (btnTestSiriWebhook) {
+    btnTestSiriWebhook.addEventListener('click', async () => {
+      siriWebhookPreview.textContent = '// Esecuzione test vocale Siri...';
+      const json = await runStandaloneOnDeviceQuery('Chi è Dottor Destino');
+      siriWebhookPreview.textContent = JSON.stringify(json, null, 2);
+      speakText(json.speech);
+    });
+  }
+
+  // 11. Engine & API Vault Configuration (ONLY API ChatGPT & API Gemini)
   function hydrateApiConfigForm() {
-    document.getElementById('selectRoutingMode').value = state.apiConfig.routingMode || 'hybrid';
-    document.getElementById('inputCustomEndpoint').value = state.apiConfig.customEndpoint || '';
-    document.getElementById('inputCustomModel').value = state.apiConfig.customModel || 'llama3.2';
-    document.getElementById('inputGeminiKey').value = state.apiConfig.geminiKey || '';
-    document.getElementById('inputPerplexityKey').value = state.apiConfig.perplexityKey || '';
-    document.getElementById('inputOpenaiKey').value = state.apiConfig.openaiKey || '';
-    document.getElementById('inputAnthropicKey').value = state.apiConfig.anthropicKey || '';
+    const sel = document.getElementById('selectRoutingMode');
+    const inOpenai = document.getElementById('inputOpenaiKey');
+    const inGemini = document.getElementById('inputGeminiKey');
+    if (sel) sel.value = state.apiConfig.routingMode || 'auto';
+    if (inOpenai) inOpenai.value = state.apiConfig.openaiKey || '';
+    if (inGemini) inGemini.value = state.apiConfig.geminiKey || '';
+    updateApiStatusBadges();
   }
 
   document.getElementById('btnSaveApiConfig').addEventListener('click', () => {
     state.apiConfig = {
-      routingMode: document.getElementById('selectRoutingMode').value,
-      customEndpoint: document.getElementById('inputCustomEndpoint').value.trim(),
-      customModel: document.getElementById('inputCustomModel').value.trim() || 'llama3.2',
-      geminiKey: document.getElementById('inputGeminiKey').value.trim(),
-      perplexityKey: document.getElementById('inputPerplexityKey').value.trim(),
+      routingMode: document.getElementById('selectRoutingMode').value || 'auto',
       openaiKey: document.getElementById('inputOpenaiKey').value.trim(),
-      anthropicKey: document.getElementById('inputAnthropicKey').value.trim()
+      geminiKey: document.getElementById('inputGeminiKey').value.trim()
     };
     localStorage.setItem('doom_api_config', JSON.stringify(state.apiConfig));
+    updateApiStatusBadges();
     syncStateToNativeIPA();
     const statusEl = document.getElementById('saveConfigStatus');
-    statusEl.textContent = 'Sincronizzato con IPA e Siri!';
-    setTimeout(() => {
-      statusEl.textContent = '';
-    }, 3000);
+    if (statusEl) {
+      statusEl.textContent = 'Chiavi API ChatGPT & Gemini salvate e sincronizzate!';
+      setTimeout(() => {
+        statusEl.textContent = '';
+      }, 3200);
+    }
   });
 
   // 12. Tasks & Contextual Memory Management
@@ -1031,35 +1248,49 @@
     syncStateToNativeIPA();
   });
 
+  // Check if launched with ?q= query parameter
+  function checkInitialUrlQuery() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('q');
+      if (q && q.trim()) {
+        setTimeout(() => submitQuery(q.trim()), 350);
+      } else if (params.get('mode') === 'voice') {
+        setTimeout(() => toggleMicrophone(), 350);
+      }
+    } catch (_) {}
+  }
+
   // Boot Sequence
   applyPersona(state.persona);
-  btnToggleTts.textContent = `Voce AI: ${state.ttsEnabled ? 'ON' : 'OFF'}`;
+  btnToggleTts.textContent = `Voce: ${state.ttsEnabled ? 'ON' : 'OFF'}`;
   detectHardwareAPU();
   hydrateApiConfigForm();
   saveAndRenderTasks();
   saveAndRenderMemory();
   requestAnimationFrame(renderReactor);
+  checkInitialUrlQuery();
 
   appendStreamMessage({
     role: 'assistant',
-    sender: 'DOOM AI // SOVEREIGN CORE',
+    sender: 'DOOM AI // NEURAL GRID v4.2',
     text:
-      'Sistema **DoomAi** attivo su **iPhone 16 Pro Max** in doppia modalità **OTA GitHub Live + 100% Offline su Memoria Interna**. Anche in **Modalità Aereo (senza internet)** l\'interfaccia completa si apre istantaneamente dalla memoria flash dell\'iPhone, permettendoti di usare voce, calcoli APU, task, promemoria, briefing e l\'archivio dei dossier salvati!',
+      'Interfaccia **Neural Sovereign v4.2** attiva a pieno schermo. La **Testa d\'Oro di Doctor Doom** è ora posizionata in alto al centro circondata dalla **Griglia Circolare di 16 Satelliti Neurali** che pulsano in sincronia con la voce e il calcolo AI. Nel menu **Motore & APU** trovi ora esclusivamente gli spazi per **API ChatGPT** e **API Gemini**.',
     cards: [
       {
-        category: 'DOPPIA ARCHITETTURA: OTA LIVE + 100% OFFLINE FLASH',
-        title: 'Funziona Anche in Modalità Aereo (Zero Internet)',
+        category: 'AGGIORNAMENTO ARCHITETTURA v4.2',
+        title: 'Griglia Satellitare Neurale + Siri URL Scheme',
         summary:
-          'Quando sei connesso, DoomAi scarica e salva automaticamente su disco interno dell\'iPhone ogni nuovo aggiornamento grafico da GitHub. Quando sei offline, carica istantaneamente l\'interfaccia salvata localmente.',
+          'Risolto il blocco della cache OTA di GitHub, adattato lo schermo nativo 6.9" di iPhone 16 Pro Max senza bande nere e abilitato il protocollo doomai:// per i Comandi Rapidi Siri.',
         metrics: [
-          { label: 'Modalità Offline', value: '100% Attiva' },
-          { label: 'Aggiornamenti UI', value: 'OTA da GitHub' },
-          { label: 'Cache Dossier', value: 'Automatica' },
-          { label: 'Voce & APU', value: 'On-Device A18 Pro' }
+          { label: 'Satelliti Attivi', value: '16 Nodi Neurali' },
+          { label: 'Motori Cloud', value: 'ChatGPT & Gemini' },
+          { label: 'Ponte Siri', value: 'doomai:// Attivo' },
+          { label: 'Modalità Offline', value: '100% Flash APU' }
         ]
       }
     ],
-    provider: 'DoomAi OTA + Offline Flash Vault',
-    latencyMs: 4
+    provider: 'DoomAi Neural Grid v4.2',
+    latencyMs: 3
   });
 })();

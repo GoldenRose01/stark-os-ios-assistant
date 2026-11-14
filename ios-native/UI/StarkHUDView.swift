@@ -3,6 +3,7 @@ import WebKit
 import AppIntents
 import AVFoundation
 import Speech
+import UIKit
 
 // MARK: - 1. Riconoscimento Vocale Nativo iOS (SFSpeechRecognizer + AVAudioEngine)
 @MainActor
@@ -23,6 +24,12 @@ final class StarkSpeechRecognizer: ObservableObject {
         if isRecording {
             stopRecording()
         } else {
+            startRecording()
+        }
+    }
+
+    func startRecordingIfIdle() {
+        if !isRecording {
             startRecording()
         }
     }
@@ -67,7 +74,7 @@ final class StarkSpeechRecognizer: ObservableObject {
 
         self.transcript = ""
         self.isRecording = true
-        self.onStateChange?(true, "DoomAi in ascolto... parla ora")
+        self.onStateChange?(true, "Griglia Neurale in ascolto... parla ora")
 
         recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
             guard let self = self else { return }
@@ -103,16 +110,17 @@ final class StarkSpeechRecognizer: ObservableObject {
         recognitionRequest = nil
         recognitionTask = nil
         isRecording = false
-        onStateChange?(false, "Tocca la Maschera d'Oro per parlare in italiano")
+        onStateChange?(false, "Tocca la Maschera d'Oro al centro per parlare")
     }
 }
 
-// MARK: - 2. Motore Ibrido OTA GitHub + Memoria Flash Offline (Documents/DoomOTA/)
+// MARK: - 2. Motore Ibrido OTA GitHub (Zero-Cache API) + Memoria Flash Offline (Documents/DoomOTA/)
 @available(iOS 16.0, *)
 struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
     @ObservedObject var engine: HybridAPUEngine
     @ObservedObject var speechRec: StarkSpeechRecognizer
     @Binding var showNativeOfflineFallback: Bool
+    @Binding var pendingSiriDeepLink: URL?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -147,13 +155,22 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
         return webView
     }
 
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        if let url = pendingSiriDeepLink {
+            DispatchQueue.main.async {
+                self.pendingSiriDeepLink = nil
+                context.coordinator.handleIncomingSiriURL(url)
+            }
+        }
+    }
 
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var parent: DoomHybridOfflineOTAWebView
         weak var webView: WKWebView?
         private let synthesizer = AVSpeechSynthesizer()
+        private let githubApiBase = "https://api.github.com/repos/GoldenRose01/stark-os-ios-assistant/contents/docs"
+        private let githubPagesBase = "https://goldenrose01.github.io/stark-os-ios-assistant"
         private let githubRawBase = "https://raw.githubusercontent.com/GoldenRose01/stark-os-ios-assistant/main/docs"
         private let otaFiles = ["index.html", "index.css", "app.js", "doom-mask.png", "manifest.json"]
 
@@ -175,19 +192,27 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
             return FileManager.default.fileExists(atPath: indexURL.path)
         }
 
-        func loadFromLocalFlash() {
+        func loadFromLocalFlash(bustWebKitCache: Bool = false) {
             let otaDir = getLocalOTADirectory()
             let indexURL = otaDir.appendingPathComponent("index.html")
-            if FileManager.default.fileExists(atPath: indexURL.path) {
+            guard FileManager.default.fileExists(atPath: indexURL.path) else { return }
+
+            if bustWebKitCache {
+                let cacheTypes: Set<String> = [WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache]
+                WKWebsiteDataStore.default().removeData(ofTypes: cacheTypes, modifiedSince: .distantPast) { [weak self] in
+                    guard let self = self else { return }
+                    self.webView?.loadFileURL(indexURL, allowingReadAccessTo: otaDir)
+                }
+            } else {
                 webView?.loadFileURL(indexURL, allowingReadAccessTo: otaDir)
             }
         }
 
         func bootOfflineAndSyncGitHub() {
             if hasCachedOfflineFiles() {
-                loadFromLocalFlash()
+                loadFromLocalFlash(bustWebKitCache: false)
                 Task {
-                    await syncLatestFromGitHub(forceReload: false)
+                    await syncLatestFromGitHub(forceReload: true)
                 }
             } else {
                 Task {
@@ -199,40 +224,85 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
             }
         }
 
+        private func fetchFreshFileData(fileName: String, session: URLSession, ts: Int) async -> Data? {
+            // 1. Primary: GitHub Contents API with raw header (0-second cache delay!)
+            if let apiURL = URL(string: "\(githubApiBase)/\(fileName)?ref=main&t=\(ts)") {
+                var req = URLRequest(url: apiURL)
+                req.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+                req.setValue("application/vnd.github.v3.raw", forHTTPHeaderField: "Accept")
+                req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+                if let (data, resp) = try? await session.data(for: req),
+                   let http = resp as? HTTPURLResponse, http.statusCode == 200, !data.isEmpty {
+                    return data
+                }
+            }
+
+            // 2. Fallback A: GitHub Pages
+            if let pagesURL = URL(string: "\(githubPagesBase)/\(fileName)?t=\(ts)") {
+                var req = URLRequest(url: pagesURL)
+                req.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+                if let (data, resp) = try? await session.data(for: req),
+                   let http = resp as? HTTPURLResponse, http.statusCode == 200, !data.isEmpty {
+                    return data
+                }
+            }
+
+            // 3. Fallback B: Raw GitHub CDN
+            if let rawURL = URL(string: "\(githubRawBase)/\(fileName)?t=\(ts)") {
+                var req = URLRequest(url: rawURL)
+                req.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+                if let (data, resp) = try? await session.data(for: req),
+                   let http = resp as? HTTPURLResponse, http.statusCode == 200, !data.isEmpty {
+                    return data
+                }
+            }
+
+            return nil
+        }
+
         @discardableResult
         func syncLatestFromGitHub(forceReload: Bool) async -> Bool {
             let otaDir = getLocalOTADirectory()
             let ts = Int(Date().timeIntervalSince1970)
-            var updatedAnyFile = false
             var successCount = 0
 
             let config = URLSessionConfiguration.ephemeral
+            config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            config.urlCache = nil
             config.timeoutIntervalForRequest = 8
             let session = URLSession(configuration: config)
 
             for fileName in otaFiles {
-                guard let remoteURL = URL(string: "\(githubRawBase)/\(fileName)?t=\(ts)") else { continue }
-                do {
-                    let (data, response) = try await session.data(from: remoteURL)
-                    guard let httpResp = response as? HTTPURLResponse, httpResp.statusCode == 200, !data.isEmpty else {
-                        continue
-                    }
-                    successCount += 1
-                    let localURL = otaDir.appendingPathComponent(fileName)
-                    let existingData = try? Data(contentsOf: localURL)
-                    if existingData != data {
-                        try data.write(to: localURL, options: .atomic)
-                        updatedAnyFile = true
-                    }
-                } catch {
+                guard var data = await fetchFreshFileData(fileName: fileName, session: session, ts: ts) else {
                     continue
                 }
+                successCount += 1
+
+                // Stamp index.html asset URLs with ?v=ts so WKWebView never uses cached CSS or JS!
+                if fileName == "index.html", var htmlStr = String(data: data, encoding: .utf8) {
+                    htmlStr = htmlStr.replacingOccurrences(
+                        of: #"href="\.\/index\.css(\?[^"]*)?""#,
+                        with: "href=\"./index.css?v=\(ts)\"",
+                        options: .regularExpression
+                    )
+                    htmlStr = htmlStr.replacingOccurrences(
+                        of: #"src="\.\/app\.js(\?[^"]*)?""#,
+                        with: "src=\"./app.js?v=\(ts)\"",
+                        options: .regularExpression
+                    )
+                    if let stampedData = htmlStr.data(using: .utf8) {
+                        data = stampedData
+                    }
+                }
+
+                let localURL = otaDir.appendingPathComponent(fileName)
+                try? data.write(to: localURL, options: .atomic)
             }
 
-            if (updatedAnyFile || forceReload) && hasCachedOfflineFiles() {
-                loadFromLocalFlash()
-                try? await Task.sleep(nanoseconds: 400_000_000)
-                sendEventToJS(["type": "otaStatus", "message": updatedAnyFile ? "Aggiornato da GitHub!" : "Già all'ultima versione"])
+            if successCount > 0 && hasCachedOfflineFiles() {
+                loadFromLocalFlash(bustWebKitCache: true)
+                try? await Task.sleep(nanoseconds: 550_000_000)
+                sendEventToJS(["type": "otaStatus", "message": "Sync OK!"])
             }
             return successCount > 0
         }
@@ -241,6 +311,19 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
             Task {
                 await syncLatestFromGitHub(forceReload: true)
                 sender.endRefreshing()
+            }
+        }
+
+        func handleIncomingSiriURL(_ url: URL) {
+            let host = (url.host ?? "").lowercased()
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            let qParam = components?.queryItems?.first(where: { $0.name == "q" || $0.name == "query" })?.value
+
+            if host == "voice" || (qParam ?? "").isEmpty {
+                sendEventToJS(["type": "siriUrlQuery", "mode": "voice"])
+                parent.speechRec.startRecordingIfIdle()
+            } else if let query = qParam, !query.isEmpty {
+                sendEventToJS(["type": "siriUrlQuery", "mode": "ask", "query": query])
             }
         }
 
@@ -289,6 +372,11 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
                     await syncLatestFromGitHub(forceReload: true)
                 }
 
+            case "openShortcutsApp":
+                if let shortcutsURL = URL(string: "shortcuts://create-shortcut") {
+                    UIApplication.shared.open(shortcutsURL)
+                }
+
             case "syncConfig":
                 if let persona = body["persona"] as? String {
                     parent.engine.persona = persona
@@ -298,9 +386,7 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
                 }
                 if let apiConfig = body["apiConfig"] as? [String: Any] {
                     if let g = apiConfig["geminiKey"] as? String { parent.engine.geminiKey = g }
-                    if let p = apiConfig["perplexityKey"] as? String { parent.engine.perplexityKey = p }
                     if let o = apiConfig["openaiKey"] as? String { parent.engine.openaiKey = o }
-                    if let c = apiConfig["customEndpoint"] as? String { parent.engine.customBackendURL = c }
                 }
 
             default:
@@ -310,12 +396,13 @@ struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
     }
 }
 
-// MARK: - 3. Vista Principale Full-Screen 6.9" per iPhone 16 Pro Max (Online OTA + 100% Offline Flash & Native HUD)
+// MARK: - 3. Vista Principale Full-Screen 6.9" per iPhone 16 Pro Max (Online OTA + 100% Offline Flash & Siri Deep-Link)
 @available(iOS 16.0, *)
 struct StarkHUDView: View {
     @StateObject private var engine = HybridAPUEngine.shared
     @StateObject private var speechRec = StarkSpeechRecognizer()
     @State private var showNativeOfflineFallback = false
+    @State private var pendingSiriDeepLink: URL? = nil
     @State private var offlineQueryText = ""
     @State private var offlineHistory: [StarkAssistantResponse] = []
     private let synthesizer = AVSpeechSynthesizer()
@@ -332,7 +419,8 @@ struct StarkHUDView: View {
                 DoomHybridOfflineOTAWebView(
                     engine: engine,
                     speechRec: speechRec,
-                    showNativeOfflineFallback: $showNativeOfflineFallback
+                    showNativeOfflineFallback: $showNativeOfflineFallback,
+                    pendingSiriDeepLink: $pendingSiriDeepLink
                 )
                 .ignoresSafeArea(.all)
             } else {
@@ -404,5 +492,8 @@ struct StarkHUDView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onOpenURL { incomingURL in
+            pendingSiriDeepLink = incomingURL
+        }
     }
 }

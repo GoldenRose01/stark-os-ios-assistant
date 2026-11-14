@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>DoomAi — Sovereign AI Assistant (iPhone 16 Pro Max + Siri &amp; APU)</title>
-  <meta name="description" content="DoomAi All-in-One AI Assistant con interfaccia OTA Live da GitHub, accelerazione APU A18 Pro Neural Engine e integrazione nativa Siri AppIntents." />
+  <title>DoomAi — Neural Sovereign HUD (iPhone 16 Pro Max)</title>
+  <meta name="description" content="DoomAi Sovereign AI Assistant con Griglia Neurale Satellitare, ChatGPT &amp; Gemini API, esecuzione Offline APU A18 Pro e Comandi Vocali Siri." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="DoomAi" />
@@ -16,187 +16,145 @@
 </head>
 <body data-persona="jarvis">
   <div class="app-shell">
-    <!-- Top Command Header -->
-    <header class="top-bar">
-      <div class="brand-cluster">
-        <img src="./doom-mask.png" alt="DoomAi Golden Mask" class="brand-mask-img" id="brandMaskImg" />
-        <div class="brand-titles">
-          <h1 id="systemHeaderTitle">DOOM AI // SOVEREIGN HUD</h1>
-          <div class="brand-subtitle" id="systemHeaderSub">A18 PRO 16-CORE APU // OTA LIVE GITHUB + SIRI</div>
-        </div>
-      </div>
 
-      <div class="header-controls">
-        <div class="persona-switcher" role="group" aria-label="Selettore Protocollo">
-          <button type="button" class="persona-btn active" id="btnPersonaJarvis" data-persona="jarvis">J.A.R.V.I.S.</button>
-          <button type="button" class="persona-btn" id="btnPersonaEdith" data-persona="edith">E.D.I.T.H.</button>
-        </div>
-        <button type="button" class="ota-btn" id="btnOtaReload" title="Scarica istantaneamente gli ultimi aggiornamenti interfaccia da GitHub">Sync GitHub</button>
-      </div>
-    </header>
-
-    <!-- Live Hardware & Siri Bridge Telemetry Strip -->
-    <section class="telemetry-strip" aria-label="Telemetria Sistema">
-      <div class="telemetry-cell">
-        <span class="telemetry-label">Acceleratore APU</span>
-        <span class="telemetry-val"><span class="status-dot"></span><span id="telemetryApu">A18 Pro ANE</span></span>
-      </div>
-      <div class="telemetry-cell">
-        <span class="telemetry-label">Interfaccia OTA</span>
-        <span class="telemetry-val"><span class="status-dot"></span><span id="telemetrySiri">GitHub Live Sync</span></span>
-      </div>
-      <div class="telemetry-cell">
-        <span class="telemetry-label">Motore Cognitivo</span>
-        <span class="telemetry-val" id="telemetryProvider">APU + Live RAG</span>
-      </div>
-      <div class="telemetry-cell">
-        <span class="telemetry-label">Latenza Scansione</span>
-        <span class="telemetry-val" id="telemetryLatency">8 ms</span>
-      </div>
-    </section>
-
-    <!-- VIEW 1: HUD CONSOLE & OMNISEARCH -->
+    <!-- VIEW 1: NEURAL SATELLITE HUD (TOP-CENTER DOOM HEAD + ORBITAL SATELLITE GRID) -->
     <main class="workspace-view active" id="view-hud">
-      <div class="hud-grid">
-        <!-- Left/Top Panel: Golden Mask Reactor & Quick Scans -->
-        <aside class="panel">
-          <div class="panel-header">
-            <span class="panel-title" id="reactorPanelTitle">Nucleo Imperiale DoomAi</span>
-            <span class="panel-badge" id="voiceStateBadge">PRONTO</span>
+      <!-- Top-Center Neural Satellite Stage -->
+      <section class="neural-hero-stage" aria-label="Nucleo Neurale DoomAi">
+        <div class="neural-top-pills">
+          <span class="neural-badge" id="voiceStateBadge">NEURAL GRID ATTIVA</span>
+          <span class="neural-badge neural-badge-subtle" id="telemetrySiri">OTA v4.2 // LIVE</span>
+          <button type="button" class="ota-mini-btn" id="btnOtaReload" title="Aggiorna istantaneamente l'estetica da GitHub">Sync GitHub</button>
+        </div>
+
+        <!-- Circular Satellite Grid + Center Golden Doom Head -->
+        <div class="reactor-wrapper" id="reactorTouchArea" title="Tocca la Testa di Doom per attivare l'ascolto vocale">
+          <canvas id="reactorCanvas" width="520" height="520"></canvas>
+          <div class="reactor-head-core">
+            <img src="./doom-mask.png" alt="DoomAi Golden Head" class="reactor-center-mask" id="brandMaskImg" />
           </div>
+        </div>
 
-          <div class="reactor-stage">
-            <div class="reactor-wrapper" id="reactorTouchArea" title="Tocca la Maschera d'Oro per parlare in italiano">
-              <canvas id="reactorCanvas" width="380" height="380"></canvas>
-              <img src="./doom-mask.png" alt="Doom Mask Core" class="reactor-center-mask" />
-            </div>
-            <p class="voice-status-text" id="voiceStatusText">Tocca la Maschera d'Oro per parlare in italiano</p>
+        <h1 class="neural-title" id="systemHeaderTitle">DOOM AI // NEURAL SOVEREIGN</h1>
+        <p class="voice-status-text" id="voiceStatusText">Tocca la Maschera d'Oro al centro o parla per attivare la rete satellitare</p>
 
-            <div class="voice-controls">
-              <button type="button" class="btn btn-primary" id="btnToggleMic">Ascolto Vocale</button>
-              <button type="button" class="btn" id="btnToggleTts">Voce AI: ON</button>
-            </div>
+        <!-- Compact Protocol & Voice Bar directly below the Head -->
+        <div class="hud-control-strip">
+          <div class="persona-switcher" role="group" aria-label="Protocollo Operativo">
+            <button type="button" class="persona-btn active" id="btnPersonaJarvis" data-persona="jarvis">J.A.R.V.I.S.</button>
+            <button type="button" class="persona-btn" id="btnPersonaEdith" data-persona="edith">E.D.I.T.H.</button>
           </div>
+          <button type="button" class="btn btn-primary" id="btnToggleMic">Ascolto Vocale</button>
+          <button type="button" class="btn" id="btnToggleTts">Voce: ON</button>
+        </div>
 
-          <div class="preset-list" id="presetContainer" style="margin-top: 8px;">
-            <button type="button" class="preset-chip" data-query="Meteo Roma in tempo reale">Meteo Roma Live</button>
-            <button type="button" class="preset-chip" data-query="Meteo Milano">Meteo Milano</button>
-            <button type="button" class="preset-chip" data-query="Chi è Dottor Destino">Dossier Doctor Doom</button>
-            <button type="button" class="preset-chip" data-query="Chi era Nikola Tesla">Nikola Tesla</button>
-            <button type="button" class="preset-chip" data-query="Cos'è un buco nero">Buchi Neri</button>
-            <button type="button" class="preset-chip" data-query="Calcola (1450 * 18.5) + 3200">Calcolo APU</button>
-            <button type="button" class="preset-chip" data-query="Ricordami briefing operativo alle 18:00">+ Promemoria</button>
-          </div>
-        </aside>
+        <!-- Compact Neural Telemetry Bar -->
+        <div class="micro-telemetry-bar">
+          <span>APU: <strong id="telemetryApu">A18 Pro ANE</strong></span>
+          <span>&bull;</span>
+          <span>MOTORE: <strong id="telemetryProvider">Neural Hybrid</strong></span>
+          <span>&bull;</span>
+          <span>PING: <strong id="telemetryLatency">4 ms</strong></span>
+        </div>
 
-        <!-- Right/Bottom Column: Command Bar & Intelligence Stream -->
-        <section class="console-column">
-          <form class="command-bar" id="commandForm">
-            <input
-              type="text"
-              id="commandInput"
-              class="command-input"
-              placeholder="Ordina a DoomAi (ricerche web, dossier, meteo, calcoli, task)..."
-              autocomplete="off"
-            />
-            <button type="submit" class="btn btn-primary" id="btnSendCommand">Esegui</button>
-          </form>
+        <!-- Quick Neural Presets -->
+        <div class="preset-list" id="presetContainer">
+          <button type="button" class="preset-chip" data-query="Meteo Roma in tempo reale">Meteo Roma</button>
+          <button type="button" class="preset-chip" data-query="Chi è Dottor Destino">Doctor Doom</button>
+          <button type="button" class="preset-chip" data-query="Mostra i miei task">Briefing Task</button>
+          <button type="button" class="preset-chip" data-query="Calcola (1450 * 18.5) + 3200">Calcolo APU</button>
+          <button type="button" class="preset-chip" data-query="Cos'è un buco nero">Buchi Neri</button>
+        </div>
+      </section>
 
-          <div class="stream-container" id="streamContainer" aria-live="polite"></div>
-        </section>
-      </div>
+      <!-- Command Input & Intelligence Stream -->
+      <section class="console-column">
+        <form class="command-bar" id="commandForm">
+          <input
+            type="text"
+            id="commandInput"
+            class="command-input"
+            placeholder="Ordina a DoomAi (ChatGPT, Gemini, Meteo, Dossier, Calcoli)..."
+            autocomplete="off"
+          />
+          <button type="submit" class="btn btn-primary" id="btnSendCommand">Invia</button>
+        </form>
+
+        <div class="stream-container" id="streamContainer" aria-live="polite"></div>
+      </section>
     </main>
 
-    <!-- VIEW 2: AI ENGINE, ON-DEVICE APU & MULTI-API VAULT -->
+    <!-- VIEW 2: MOTORE & APU (SOLO API CHATGPT & API GEMINI) -->
     <section class="workspace-view" id="view-engine">
       <div class="module-grid">
         <div class="panel">
           <div class="panel-header">
-            <span class="panel-title">Telemetria APU iPhone 16 Pro Max &amp; Bridge Nativo</span>
-            <span class="panel-badge" id="apuHardwareBadge">A18 PRO ATTIVO</span>
+            <span class="panel-title">Configurazione API Cloud &amp; APU</span>
+            <span class="panel-badge" id="apuHardwareBadge">CHATGPT + GEMINI</span>
           </div>
 
-          <div class="dossier-card" style="margin-bottom: 14px;">
-            <span class="dossier-cat">ARCHITETTURA IBRIDA NATIVA + OTA GITHUB</span>
-            <div class="dossier-title" id="apuDeviceSummary">Apple Neural Engine 16-Core + Metal WebGPU</div>
-            <div class="metrics-row">
-              <div class="metric-item">
-                <span>Ponte IPA Nativo</span>
-                <span id="metricWebGpu">Connesso</span>
-              </div>
-              <div class="metric-item">
-                <span>Logical Threads</span>
-                <span id="metricCores">6 Core</span>
-              </div>
-              <div class="metric-item">
-                <span>Aggiornamenti UI</span>
-                <span>Live da GitHub</span>
-              </div>
-              <div class="metric-item">
-                <span>Siri Keychain Sync</span>
-                <span id="metricRoutingMode">Automatico</span>
-              </div>
-            </div>
+          <p class="panel-desc">
+            Inserisci la tua chiave <strong>API ChatGPT (OpenAI)</strong> o <strong>API Gemini (Google)</strong>. Le chiavi restano salvate nella memoria sicura del tuo iPhone 16 Pro Max e vengono usate sia nella console sia nei comandi vocali Siri. Senza chiavi, DoomAi usa il motore gratuito Live + APU Offline.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label" for="inputOpenaiKey">API ChatGPT (OpenAI — GPT-4o / GPT-4o-mini)</label>
+            <input type="password" id="inputOpenaiKey" class="form-input" placeholder="sk-proj-..." autocomplete="off" />
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="selectRoutingMode">Strategia di Esecuzione AI</label>
+            <label class="form-label" for="inputGeminiKey">API Gemini (Google — Gemini 2.5 Flash)</label>
+            <input type="password" id="inputGeminiKey" class="form-input" placeholder="AIzaSy..." autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="selectRoutingMode">Motore Neurale Predefinito</label>
             <select id="selectRoutingMode" class="form-select">
-              <option value="hybrid">Ibrida Automatica (APU Locale + Live RAG + API Cloud/Custom)</option>
-              <option value="local_first">Priorità APU &amp; Custom Backend Locale (Ollama / vLLM / CoreML)</option>
-              <option value="deep_cloud">Deep Cloud Research (Perplexity / Gemini / OpenAI)</option>
+              <option value="auto">Automatico (ChatGPT / Gemini + APU Offline)</option>
+              <option value="chatgpt">Priorità API ChatGPT (OpenAI)</option>
+              <option value="gemini">Priorità API Gemini (Google)</option>
+              <option value="offline">Solo APU Locale Offline (Zero Cloud)</option>
             </select>
           </div>
 
-          <div class="form-group">
-            <label class="form-label" for="inputCustomEndpoint">Endpoint Backend Custom / Local LLM (Opzionale)</label>
-            <input type="text" id="inputCustomEndpoint" class="form-input" placeholder="es. http://192.168.1.50:3000/api/siri" />
+          <div class="form-actions-row">
+            <button type="button" class="btn btn-primary" id="btnSaveApiConfig" style="flex: 1;">Salva API ChatGPT &amp; Gemini</button>
           </div>
-
-          <div class="form-group">
-            <label class="form-label" for="inputCustomModel">Nome Modello Custom / Locale</label>
-            <input type="text" id="inputCustomModel" class="form-input" placeholder="es. llama3.2, deepseek-r1" value="llama3.2" />
-          </div>
+          <div id="saveConfigStatus" class="save-status-banner"></div>
         </div>
 
         <div class="panel">
           <div class="panel-header">
-            <span class="panel-title">Vault Chiavi API (Sincronizzato con Siri Nativo)</span>
-            <span class="panel-badge">ON-DEVICE VAULT</span>
+            <span class="panel-title">Stato Hardware APU iPhone 16 Pro Max</span>
+            <span class="panel-badge">ON-DEVICE</span>
           </div>
-          <p style="color: var(--text-secondary); font-size: 12.5px; margin-bottom: 12px;">
-            Salvando le chiavi qui, il ponte nativo le sincronizza direttamente con il core iOS dell'IPA così funzionano anche quando interroghi Siri a schermo bloccato.
-          </p>
-
-          <div class="form-group">
-            <label class="form-label" for="inputGeminiKey">Google Gemini API Key (gemini-2.5-flash)</label>
-            <input type="password" id="inputGeminiKey" class="form-input" placeholder="AIzaSy..." />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="inputPerplexityKey">Perplexity Sonar API Key (Deep Web Search)</label>
-            <input type="password" id="inputPerplexityKey" class="form-input" placeholder="pplx-..." />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="inputOpenaiKey">OpenAI API Key (GPT-4o)</label>
-            <input type="password" id="inputOpenaiKey" class="form-input" placeholder="sk-..." />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="inputAnthropicKey">Anthropic Claude API Key</label>
-            <input type="password" id="inputAnthropicKey" class="form-input" placeholder="sk-ant-..." />
-          </div>
-
-          <div style="display: flex; gap: 10px; align-items: center;">
-            <button type="button" class="btn btn-primary" id="btnSaveApiConfig">Salva &amp; Sincronizza con IPA</button>
-            <span id="saveConfigStatus" style="font-family: var(--font-mono); font-size: 11.5px; color: var(--status-online);"></span>
+          <div class="dossier-card">
+            <span class="dossier-cat">ACCELERAZIONE NEURALE IBRIDA</span>
+            <div class="dossier-title" id="apuDeviceSummary">Apple A18 Pro 16-Core Neural Engine</div>
+            <div class="metrics-row">
+              <div class="metric-item">
+                <span>Stato Bridge IPA</span>
+                <span id="metricWebGpu">Attivo</span>
+              </div>
+              <div class="metric-item">
+                <span>Core Logici</span>
+                <span id="metricCores">6 Core</span>
+              </div>
+              <div class="metric-item">
+                <span>API ChatGPT</span>
+                <span id="metricChatGptState">Non inserita</span>
+              </div>
+              <div class="metric-item">
+                <span>API Gemini</span>
+                <span id="metricGeminiState">Non inserita</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- VIEW 3: CONTESTUAL MEMORY & TACTICAL TASKS -->
+    <!-- VIEW 3: TASK & MEMORIA CONTESTUALE -->
     <section class="workspace-view" id="view-memory">
       <div class="module-grid">
         <div class="panel">
@@ -204,8 +162,8 @@
             <span class="panel-title">Task Operativi &amp; Promemoria</span>
             <span class="panel-badge" id="taskCountBadge">0 ATTIVI</span>
           </div>
-          <form id="addTaskForm" style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <input type="text" id="newTaskInput" class="form-input" style="flex: 1;" placeholder="Nuova missione o promemoria..." />
+          <form id="addTaskForm" class="inline-form">
+            <input type="text" id="newTaskInput" class="form-input" placeholder="Nuova missione o promemoria..." />
             <button type="submit" class="btn btn-primary">Aggiungi</button>
           </form>
           <div class="task-list" id="taskListContainer"></div>
@@ -213,11 +171,11 @@
 
         <div class="panel">
           <div class="panel-header">
-            <span class="panel-title">Memoria Contestuale Persistente (Doom Graph)</span>
-            <span class="panel-badge">ATTIVA SU SIRI</span>
+            <span class="panel-title">Memoria Neurale Persistente</span>
+            <span class="panel-badge">ON-DEVICE VAULT</span>
           </div>
-          <form id="addMemoryForm" style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <input type="text" id="newMemoryInput" class="form-input" style="flex: 1;" placeholder="Memorizza direttiva o preferenza..." />
+          <form id="addMemoryForm" class="inline-form">
+            <input type="text" id="newMemoryInput" class="form-input" placeholder="Memorizza direttiva o preferenza..." />
             <button type="submit" class="btn btn-primary">Salva</button>
           </form>
           <div class="task-list" id="memoryListContainer"></div>
@@ -225,34 +183,38 @@
       </div>
     </section>
 
-    <!-- VIEW 4: SIRI SHORTCUTS & OTA ARCHITECTURE -->
+    <!-- VIEW 4: SIRI DEEP-LINK & AGGIORNAMENTI OTA -->
     <section class="workspace-view" id="view-siri">
       <div class="module-grid">
         <div class="panel">
           <div class="panel-header">
-            <span class="panel-title">Ponte Vocale Nativo Siri &amp; Aggiornamenti OTA</span>
-            <span class="panel-badge">ATTIVO NELL'IPA</span>
+            <span class="panel-title">Attivazione "Ehi Siri" (Sideloadly Free ID)</span>
+            <span class="panel-badge">URL SCHEME ATTIVO</span>
           </div>
-          <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 12px;">
-            L'IPA base installata sul tuo iPhone 16 Pro Max contiene i permessi nativi iOS (Microfono, Speech, Neural Engine, AppIntents Siri) e carica questa interfaccia in tempo reale dal tuo repository GitHub. Ogni modifica futura su GitHub apparirà subito nell'app senza mai dover reinstallare l'IPA!
+          <p class="panel-desc">
+            Poiché Sideloadly usa un Apple ID gratuito (che modifica il Bundle ID e blocca i permessi Apple a pagamento per <em>AppIntents</em> automatici), DoomAi include il protocollo diretto <code>doomai://</code> per far funzionare <strong>"Ehi Siri"</strong> al 100% tramite l'app <strong>Comandi Rapidi</strong> di iPhone!
           </p>
 
           <div class="dossier-card" style="margin-bottom: 12px;">
-            <span class="dossier-cat">FRASI VOCALI SIRI REGISTRATE DALL'IPA</span>
-            <div class="dossier-title">"Ehi Siri, chiedi a Doom con DoomAi"</div>
-            <div style="font-size: 12.5px; color: var(--text-secondary); margin-top: 4px;">
-              &bull; "Ehi Siri, chiedi a Jarvis con DoomAi"<br/>
-              &bull; "Ehi Siri, protocollo Edith su DoomAi"<br/>
-              &bull; "Ehi Siri, scansione tattica con DoomAi"
+            <span class="dossier-cat">CONFIGURAZIONE RAPIDA IN 20 SECONDI (UNA SOLA VOLTA)</span>
+            <div class="dossier-title">Come attivare "Ehi Siri, Chiedi a Doom"</div>
+            <div class="siri-steps-list">
+              <div><strong>1.</strong> Tocca <strong>"Apri Comandi Rapidi &amp; Copia URL"</strong> qui sotto (l'indirizzo <code>doomai://ask?q=</code> viene copiato in automatico).</div>
+              <div><strong>2.</strong> Nell'app <em>Comandi Rapidi</em> di iPhone tocca <strong>+</strong> in alto a destra e rinomina il comando in <strong>"Chiedi a Doom"</strong>.</div>
+              <div><strong>3.</strong> Aggiungi l'azione <strong>"Chiedi input"</strong> (Testo, con messaggio <em>"Qual è il tuo ordine?"</em>).</div>
+              <div><strong>4.</strong> Aggiungi l'azione <strong>"Apri URL"</strong> e incolla <code>doomai://ask?q=</code> seguito dalla variabile <em>Input fornito</em> (oppure usa semplicemente <code>doomai://voice</code> per avviare subito il microfono di DoomAi!).</div>
             </div>
           </div>
 
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-primary" id="btnTestSiriWebhook">Testa Risposta Vocale Siri</button>
-            <button type="button" class="btn" id="btnCopyCurl">Copia Endpoint JSON</button>
+          <div class="siri-action-grid">
+            <button type="button" class="btn btn-primary" id="btnOpenShortcutsApp">Apri Comandi Rapidi &amp; Copia URL</button>
+            <button type="button" class="btn" id="btnTestSiriVoiceUrl">Testa Ascolto Diretto (doomai://voice)</button>
+            <button type="button" class="btn" id="btnTestSiriWebhook">Simula Risposta Vocale Siri</button>
           </div>
 
-          <pre class="code-viewer" id="siriWebhookPreview" style="margin-top: 12px;">// Premi "Testa Risposta Vocale Siri" per verificare la sintesi vocale e il payload JSON...</pre>
+          <pre class="code-viewer" id="siriWebhookPreview" style="margin-top: 12px;">// URL Scheme Registrati nell'IPA v4:
+// 1) doomai://voice           -> Apre DoomAi e attiva subito il microfono vocale
+// 2) doomai://ask?q=Domanda   -> Esegue la domanda su ChatGPT/Gemini/APU e parla ad alta voce</pre>
         </div>
       </div>
     </section>
@@ -261,7 +223,7 @@
     <nav class="bottom-tab-bar" aria-label="Navigazione DoomAi">
       <button type="button" class="nav-tab active" id="tab-hud" data-target="view-hud">
         <span class="nav-tab-icon">&#9670;</span>
-        <span>DoomAi HUD</span>
+        <span>Doom HUD</span>
       </button>
       <button type="button" class="nav-tab" id="tab-engine" data-target="view-engine">
         <span class="nav-tab-icon">&#9881;</span>

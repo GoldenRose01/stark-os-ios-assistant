@@ -14,6 +14,7 @@ targets:
       - path: Engine
       - path: UI
       - path: Assets.xcassets
+      - path: LaunchScreen.storyboard
     info:
       path: Info.plist
     settings:
