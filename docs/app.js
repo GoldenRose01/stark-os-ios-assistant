@@ -6,6 +6,7 @@
     isListening: false,
     isSpeaking: false,
     isProcessing: false,
+    isOnline: navigator.onLine !== false,
     hasNativeBridge: Boolean(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.doomNative),
     apuTelemetry: {
       engine: 'A18 Pro 16-Core Neural Engine',
@@ -17,7 +18,7 @@
       localStorage.getItem('doom_tasks') ||
         JSON.stringify([
           { id: 't1', text: 'Pronuncia "Ehi Siri, chiedi a Doom con DoomAi"', done: false },
-          { id: 't2', text: 'Tocca Sync GitHub per ricevere aggiornamenti UI istantanei senza reinstallare IPA', done: false }
+          { id: 't2', text: 'Testa modalità Offline (Modalità Aereo) sull\'APU A18 Pro', done: false }
         ])
     ),
     memory: JSON.parse(
@@ -27,6 +28,34 @@
           { id: 'm2', text: 'Lingua operativa primaria: Italiano' }
         ])
     )
+  };
+
+  // Built-in Offline Encyclopedic Vault (always available in Airplane Mode / 0-Network)
+  const OFFLINE_DOSSIERS = {
+    doom: {
+      category: 'DOSSIER SOVRANO LATVERIA (VAULT OFFLINE)',
+      title: 'Victor Von Doom — Doctor Doom',
+      summary:
+        'Sovrano di Latveria, genio scientifico e maestro delle arti mistiche e cibernetiche. L\'architettura DoomAi unisce la precisione analitica di J.A.R.V.I.S. e la rete tattica E.D.I.T.H. sotto un unico comando sovrano con esecuzione ibrida Offline APU + Cloud.'
+    },
+    jarvis: {
+      category: 'PROTOCOLLO OPERATIVO PRIMARIO (VAULT OFFLINE)',
+      title: 'J.A.R.V.I.S. — Just A Rather Very Intelligent System',
+      summary:
+        'Modulo analitico e gestionale attivo in DoomAi. In assenza di rete, esegue calcoli sul co-processore matematico, gestisce task e promemoria vocali, interroga la memoria contestuale e risponde tramite il sintetizzatore vocale nativo di iOS.'
+    },
+    edith: {
+      category: 'PROTOCOLLO TATTICO SECONDARIO (VAULT OFFLINE)',
+      title: 'E.D.I.T.H. — Even Dead, I\'m The Hero',
+      summary:
+        'Assetto tattico ad alto contrasto (Cremisi & Oro) progettato per ricognizione rapida, telemetria hardware A18 Pro e accesso immediato ai dossier salvati localmente.'
+    },
+    apu: {
+      category: 'ARCHITETTURA HARDWARE iPHONE 16 PRO MAX (OFFLINE)',
+      title: 'Apple A18 Pro — 16-Core Neural Engine (35+ TOPS)',
+      summary:
+        'Il chip A18 Pro dell\'iPhone 16 Pro Max integra un Neural Engine a 16-Core capace di 35 trilioni di operazioni al secondo, permettendo a DoomAi di eseguire riconoscimento vocale italiano, sintesi vocale, classificazione degli intenti (NLTagger/CoreML) e calcoli completamente offline.'
+    }
   };
 
   // DOM Elements
@@ -42,10 +71,11 @@
   const btnToggleMic = document.getElementById('btnToggleMic');
   const btnToggleTts = document.getElementById('btnToggleTts');
   const telemetryApu = document.getElementById('telemetryApu');
+  const telemetrySiri = document.getElementById('telemetrySiri');
   const telemetryProvider = document.getElementById('telemetryProvider');
   const telemetryLatency = document.getElementById('telemetryLatency');
 
-  // Helper to send message to Native iOS IPA Shell (if running inside DoomAi.ipa)
+  // Helper to send message to Native iOS IPA Shell
   function postToNativeBridge(payload) {
     if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.doomNative) {
       try {
@@ -55,6 +85,21 @@
     }
     return false;
   }
+
+  // Update Online / Offline Telemetry Indicator
+  function updateConnectivityBadge() {
+    state.isOnline = navigator.onLine !== false;
+    if (telemetrySiri) {
+      telemetrySiri.textContent = state.isOnline ? 'OTA GitHub + Offline Ready' : 'MODALITÀ OFFLINE (APU)';
+    }
+    const btnOta = document.getElementById('btnOtaReload');
+    if (btnOta) {
+      btnOta.textContent = state.isOnline ? 'Sync GitHub' : 'Offline APU';
+    }
+  }
+
+  window.addEventListener('online', updateConnectivityBadge);
+  window.addEventListener('offline', updateConnectivityBadge);
 
   // Receive callbacks from Native iOS IPA Shell (SFSpeechRecognizer, Native APU, etc.)
   window.onDoomNativeEvent = (event) => {
@@ -77,10 +122,15 @@
       btnToggleMic.textContent = state.isListening ? 'Ferma Ascolto' : 'Ascolto Vocale';
       btnToggleMic.classList.toggle('btn-listening', state.isListening);
       if (event.message) voiceStatusText.textContent = event.message;
+    } else if (event.type === 'otaStatus') {
+      const btnOta = document.getElementById('btnOtaReload');
+      if (btnOta && event.message) {
+        btnOta.textContent = event.message;
+        setTimeout(updateConnectivityBadge, 2500);
+      }
     }
   };
 
-  // Sync current state to Native iOS UserDefaults so Siri AppIntents shares keys & memories
   function syncStateToNativeIPA() {
     postToNativeBridge({
       action: 'syncConfig',
@@ -106,11 +156,12 @@
     const metricWebGpu = document.getElementById('metricWebGpu');
     const metricCores = document.getElementById('metricCores');
     if (apuSummaryEl) apuSummaryEl.textContent = engineLabel;
-    if (metricWebGpu) metricWebGpu.textContent = isNativeIpa ? 'Bridge IPA Nativo' : 'WebGPU Attivo';
+    if (metricWebGpu) metricWebGpu.textContent = isNativeIpa ? 'Bridge IPA + Cache Offline' : 'WebGPU Attivo';
     if (metricCores) metricCores.textContent = `${cores} Core Attivi`;
+    updateConnectivityBadge();
   }
 
-  // 2. Persona Switching (J.A.R.V.I.S. Gold vs E.D.I.T.H. Crimson Gold)
+  // 2. Persona Switching
   function applyPersona(persona) {
     state.persona = persona === 'edith' ? 'edith' : 'jarvis';
     localStorage.setItem('doom_persona', state.persona);
@@ -121,14 +172,14 @@
 
     if (state.persona === 'edith') {
       systemHeaderTitle.textContent = 'DOOM AI // E.D.I.T.H. TACTICAL';
-      systemHeaderSub.textContent = 'ASSETTO OTTICO AR // OTA GITHUB LIVE + SIRI';
+      systemHeaderSub.textContent = 'ASSETTO OTTICO AR // OFFLINE APU + OTA GITHUB';
       reactorPanelTitle.textContent = 'Reticolo Tattico E.D.I.T.H.';
-      commandInput.placeholder = 'Inserisci bersaglio per E.D.I.T.H. (dossier, meteo, calcoli, task)...';
+      commandInput.placeholder = 'Inserisci bersaglio per E.D.I.T.H. (anche Offline)...';
     } else {
       systemHeaderTitle.textContent = 'DOOM AI // SOVEREIGN HUD';
-      systemHeaderSub.textContent = 'A18 PRO 16-CORE APU // OTA LIVE GITHUB + SIRI';
+      systemHeaderSub.textContent = 'A18 PRO 16-CORE APU // OFFLINE + OTA LIVE GITHUB';
       reactorPanelTitle.textContent = 'Nucleo Imperiale DoomAi';
-      commandInput.placeholder = 'Ordina a DoomAi (ricerche web, dossier, meteo, calcoli, task)...';
+      commandInput.placeholder = 'Ordina a DoomAi (funziona Online e Offline su APU)...';
     }
     syncStateToNativeIPA();
   }
@@ -136,11 +187,15 @@
   document.getElementById('btnPersonaJarvis').addEventListener('click', () => applyPersona('jarvis'));
   document.getElementById('btnPersonaEdith').addEventListener('click', () => applyPersona('edith'));
 
-  // OTA Instant Reload from GitHub
+  // OTA Instant Reload from GitHub (saves local copy on iPhone disk for offline use!)
   const btnOtaReload = document.getElementById('btnOtaReload');
   if (btnOtaReload) {
     btnOtaReload.addEventListener('click', () => {
-      btnOtaReload.textContent = 'Aggiornamento...';
+      if (!navigator.onLine) {
+        btnOtaReload.textContent = 'Modalità Offline Attiva';
+        return;
+      }
+      btnOtaReload.textContent = 'Sync GitHub...';
       if (!postToNativeBridge({ action: 'reloadOTA' })) {
         const url = new URL(window.location.href);
         url.searchParams.set('ota', String(Date.now()));
@@ -161,7 +216,7 @@
     });
   });
 
-  // 4. Animated 60fps Canvas Golden Reactor Rings around the Golden Doctor Doom Mask
+  // 4. Animated 60fps Canvas Golden Reactor Rings
   const canvas = document.getElementById('reactorCanvas');
   const ctx = canvas.getContext('2d');
   let phase = 0;
@@ -179,7 +234,6 @@
     const speedMultiplier = state.isListening || state.isSpeaking || state.isProcessing ? 2.8 : 1.0;
     phase += 0.018 * speedMultiplier;
 
-    // Outer segmented 24K Gold ring
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(phase * 0.5);
@@ -195,7 +249,6 @@
     }
     ctx.restore();
 
-    // Counter-rotating inner ring
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(-phase * 0.85);
@@ -210,7 +263,6 @@
     }
     ctx.restore();
 
-    // Glowing halo around the Golden Mask
     const pulseRadius = 108 + Math.sin(phase * 2.6) * (state.isListening || state.isSpeaking ? 14 : 4);
     ctx.beginPath();
     ctx.arc(cx, cy, pulseRadius, 0, Math.PI * 2);
@@ -227,7 +279,7 @@
     requestAnimationFrame(renderReactor);
   }
 
-  // 5. Speech Synthesis (Uses Native iOS AVSpeechSynthesizer inside IPA, or Web Speech TTS on desktop)
+  // 5. Speech Synthesis (100% On-Device Offline Compatible via AVSpeechSynthesizer)
   function speakText(text) {
     if (!state.ttsEnabled || !text) return;
     if (postToNativeBridge({ action: 'speak', text, persona: state.persona })) {
@@ -257,7 +309,7 @@
     syncStateToNativeIPA();
   });
 
-  // 6. Voice Recognition (Uses Native iOS SFSpeechRecognizer inside IPA, or WebSpeech on desktop)
+  // 6. Voice Recognition
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null;
 
@@ -317,13 +369,13 @@
   btnToggleMic.addEventListener('click', toggleMicrophone);
   document.getElementById('reactorTouchArea').addEventListener('click', toggleMicrophone);
 
-  // 7. Standalone On-Device iOS Intelligence Engine
+  // 7. Hybrid Online + 100% Offline APU Engine
   async function runStandaloneOnDeviceQuery(query) {
     const startTime = Date.now();
     const persona = state.persona;
     const lower = query.toLowerCase();
 
-    // A) Task / Memory Commands
+    // A) Task / Memory Add Commands (100% Offline Ready)
     if (/^(aggiungi task|crea promemoria|ricordami di|ricordami|aggiungi nota|memorizza che|memorizza)/i.test(lower)) {
       const extracted = query
         .replace(/^(aggiungi task|crea promemoria|ricordami di|ricordami|aggiungi nota|memorizza che|memorizza)[:\s]*/i, '')
@@ -331,105 +383,86 @@
       const isMem = lower.includes('memorizza');
       const speech =
         persona === 'edith'
-          ? `Ricevuto. Ho registrato nel database tattico: "${extracted}".`
-          : `Agli ordini, Signore. Ho annotato "${extracted}" nella memoria di DoomAi.`;
+          ? `Ricevuto. Ho registrato nel database tattico locale: "${extracted}".`
+          : `Agli ordini, Signore. Ho annotato "${extracted}" nella memoria offline di DoomAi.`;
       return {
         ok: true,
         persona,
         speech,
         display: speech,
-        provider: `${state.apuTelemetry.engine} (On-Device Vault)`,
-        latencyMs: Math.max(5, Date.now() - startTime),
+        provider: `${state.apuTelemetry.engine} (Offline Vault)`,
+        latencyMs: Math.max(3, Date.now() - startTime),
         taskAction: { type: isMem ? 'MEMORY_ADD' : 'TASK_ADD', content: extracted },
         cards: [
           {
-            category: isMem ? 'MEMORIA DOOM AGGIORNATA' : 'NUOVO TASK OPERATIVO',
+            category: isMem ? 'MEMORIA DOOM SALVATA (OFFLINE)' : 'NUOVO TASK OPERATIVO (OFFLINE)',
             title: extracted,
-            summary: 'Sincronizzato con la memoria nativa dell\'IPA e con Siri.'
+            summary: 'Salvato nella memoria flash interna dell\'iPhone e disponibile anche senza connessione.'
           }
         ]
       };
     }
 
-    // B) Live Weather via Open-Meteo
-    if (/\b(meteo|tempo|temperatura|piove|previsioni)\b/i.test(lower)) {
-      const cityMatch =
-        query.match(/(?:meteo|tempo|temperatura|previsioni)\s+(?:a|di|per|su|in)?\s*([a-zA-ZÀ-ÿ\s]{2,25})/i) || [];
-      const targetCity =
-        (cityMatch[1] || 'Roma').replace(/\b(oggi|domani|adesso|ora|live|in tempo reale)\b/gi, '').trim() || 'Roma';
-      try {
-        const geoRes = await fetch(
-          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(targetCity)}&count=1&language=it&format=json`
-        );
-        const geo = await geoRes.json();
-        if (geo?.results?.length > 0) {
-          const p = geo.results[0];
-          const wxRes = await fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${p.latitude}&longitude=${p.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,surface_pressure`
-          );
-          const wx = await wxRes.json();
-          if (wx?.current) {
-            const c = wx.current;
-            const cityLabel = `${p.name}${p.country ? ', ' + p.country : ''}`;
-            const speech =
-              persona === 'edith'
-                ? `Scansione atmosferica su ${cityLabel}: ${c.temperature_2m} gradi Celsius, umidità ${c.relative_humidity_2m} percento, vento a ${c.wind_speed_10m} chilometri orari.`
-                : `Signore, la telemetria meteo live su ${cityLabel} rileva ${c.temperature_2m} gradi Celsius, percepita ${c.apparent_temperature} gradi e vento a ${c.wind_speed_10m} chilometri orari.`;
-            return {
-              ok: true,
-              persona,
-              speech,
-              display: `### Scansione Atmosferica — ${cityLabel}\n\nTemperatura attuale di **${c.temperature_2m}°C** (percepita ${c.apparent_temperature}°C), umidità al **${c.relative_humidity_2m}%** e vento a **${c.wind_speed_10m} km/h**.`,
-              provider: `${state.apuTelemetry.engine} + Open-Meteo Live`,
-              latencyMs: Date.now() - startTime,
-              cards: [
-                {
-                  category: 'TELEMETRIA METEO SATELLITARE LIVE',
-                  title: `Situazione Atmosferica: ${cityLabel}`,
-                  summary: `Temperatura ${c.temperature_2m}°C, umidità ${c.relative_humidity_2m}%, pressione ${c.surface_pressure} hPa.`,
-                  metrics: [
-                    { label: 'Temperatura', value: `${c.temperature_2m} °C` },
-                    { label: 'Percepita', value: `${c.apparent_temperature} °C` },
-                    { label: 'Umidità', value: `${c.relative_humidity_2m}%` },
-                    { label: 'Vento', value: `${c.wind_speed_10m} km/h` }
-                  ]
-                }
-              ]
-            };
+    // B) Read Tasks / Memories / Briefing Commands (100% Offline Ready)
+    if (/\b(quali sono i miei task|mostra i task|mostra promemoria|cosa devo fare|leggi memoria|cosa ricordi|briefing)\b/i.test(lower)) {
+      const activeTasks = state.tasks.filter((t) => !t.done).map((t) => t.text);
+      const memFacts = state.memory.map((m) => m.text);
+      const taskSummary =
+        activeTasks.length > 0
+          ? `Hai ${activeTasks.length} missioni attive: ${activeTasks.join('; ')}.`
+          : 'Non ci sono task in sospeso nel database.';
+      const speech =
+        persona === 'edith'
+          ? `Briefing tattico offline: ${taskSummary}`
+          : `Agli ordini, Signore. Ecco il suo briefing operativo locale: ${taskSummary}`;
+      return {
+        ok: true,
+        persona,
+        speech,
+        display: `### Briefing Operativo Locale (Offline Ready)\n\n**Task Attivi (${activeTasks.length})**:\n- ${activeTasks.join('\n- ') || 'Nessun task attivo'}\n\n**Direttive in Memoria (${memFacts.length})**:\n- ${memFacts.join('\n- ')}`,
+        provider: `${state.apuTelemetry.engine} (Local Briefing)`,
+        latencyMs: 4,
+        cards: [
+          {
+            category: 'BRIEFING LOCALE ON-DEVICE',
+            title: `${activeTasks.length} Task Attivi // ${memFacts.length} Memorie`,
+            summary: taskSummary
           }
-        }
-      } catch (_) {}
+        ]
+      };
     }
 
-    // C) Local APU Math Co-Processor
+    // C) Local APU Math Co-Processor & Unit Conversions (100% Offline Ready)
     const cleanMath = query
       .toLowerCase()
       .replace(/quanto fa|calcola|risolvi|\?/g, ' ')
       .replace(/,/g, '.')
       .replace(/×|x(?=\s*\d)/g, '*')
       .replace(/÷/g, '/')
+      .replace(/radice quadrata di\s*(\d+(\.\d+)?)/g, 'Math.sqrt($1)')
       .trim();
-    if (/^[0-9+\-*/().\s]+$/.test(cleanMath) && /[+\-*/]/.test(cleanMath)) {
+    if (/^[0-9+\-*/().\sMathsqrt]+$/.test(cleanMath) && (/[+\-*/]/.test(cleanMath) || cleanMath.includes('Math.sqrt'))) {
       try {
         const val = Function(`"use strict"; return (${cleanMath});`)();
         if (typeof val === 'number' && Number.isFinite(val)) {
           const resNum = Number(val.toFixed(6));
+          const displayExpr = cleanMath.replace(/Math\.sqrt/g, '√');
           const speech =
             persona === 'edith'
-              ? `Calcolo APU completato: ${cleanMath} equivale a ${resNum}.`
-              : `Il risultato del calcolo ${cleanMath} è esattamente ${resNum}, Signore.`;
+              ? `Calcolo APU completato: ${displayExpr} equivale a ${resNum}.`
+              : `Il risultato del calcolo ${displayExpr} è esattamente ${resNum}, Signore.`;
           return {
             ok: true,
             persona,
             speech,
-            display: `### Calcolo Computazionale APU\n\n\`${cleanMath} = ${resNum}\``,
-            provider: `${state.apuTelemetry.engine} (Math Co-Processor)`,
+            display: `### Calcolo Computazionale APU (Offline)\n\n\`${displayExpr} = ${resNum}\``,
+            provider: `${state.apuTelemetry.engine} (Offline Co-Processor)`,
             latencyMs: 2,
             cards: [
               {
                 category: 'CO-PROCESSORE MATEMATICO ON-DEVICE',
-                title: `${cleanMath} = ${resNum}`,
-                summary: 'Eseguito direttamente sull\'unità aritmetica locale dell\'iPhone 16 Pro Max.'
+                title: `${displayExpr} = ${resNum}`,
+                summary: 'Eseguito direttamente sull\'unità aritmetica locale dell\'iPhone 16 Pro Max (0 rete).'
               }
             ]
           };
@@ -437,106 +470,242 @@
       } catch (_) {}
     }
 
-    // D) Direct Gemini API call if user configured a Gemini Key
-    if (state.apiConfig.geminiKey) {
-      try {
-        const sys =
-          persona === 'edith'
-            ? 'Sei E.D.I.T.H. nel sistema DoomAi su iPhone 16 Pro Max. Rispondi in italiano in modo diretto e preciso.'
-            : 'Sei J.A.R.V.I.S. nel sistema DoomAi su iPhone 16 Pro Max. Rispondi in italiano con stile elegante ("Agli ordini, Signore") e completo.';
-        const gemRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.apiConfig.geminiKey)}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: sys }] },
-              contents: [{ role: 'user', parts: [{ text: query }] }]
-            })
-          }
-        );
-        const gemData = await gemRes.json();
-        const reply = gemData?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (reply) {
-          return {
-            ok: true,
-            persona,
-            speech: reply.replace(/[#*`_~>-]/g, '').slice(0, 480),
-            display: reply,
-            provider: 'Google Gemini 2.5 Flash + A18 Pro',
-            latencyMs: Date.now() - startTime,
-            cards: []
-          };
-        }
-      } catch (_) {}
+    // D) Check Built-in Offline Dossiers (Doctor Doom, Jarvis, Edith, APU)
+    if (lower.includes('destino') || lower.includes('doctor doom') || lower === 'doom') {
+      const d = OFFLINE_DOSSIERS.doom;
+      return {
+        ok: true,
+        persona,
+        speech: d.summary,
+        display: `### ${d.title}\n*${d.category}*\n\n${d.summary}`,
+        provider: `${state.apuTelemetry.engine} (Offline Vault)`,
+        latencyMs: 3,
+        cards: [d]
+      };
+    }
+    if (lower.includes('jarvis') || lower.includes('j.a.r.v.i.s')) {
+      const d = OFFLINE_DOSSIERS.jarvis;
+      return {
+        ok: true,
+        persona,
+        speech: d.summary,
+        display: `### ${d.title}\n*${d.category}*\n\n${d.summary}`,
+        provider: `${state.apuTelemetry.engine} (Offline Vault)`,
+        latencyMs: 3,
+        cards: [d]
+      };
+    }
+    if (lower.includes('edith') || lower.includes('e.d.i.t.h')) {
+      const d = OFFLINE_DOSSIERS.edith;
+      return {
+        ok: true,
+        persona,
+        speech: d.summary,
+        display: `### ${d.title}\n*${d.category}*\n\n${d.summary}`,
+        provider: `${state.apuTelemetry.engine} (Offline Vault)`,
+        latencyMs: 3,
+        cards: [d]
+      };
+    }
+    if (lower.includes('a18') || lower.includes('neural engine') || lower.includes('apu')) {
+      const d = OFFLINE_DOSSIERS.apu;
+      return {
+        ok: true,
+        persona,
+        speech: d.summary,
+        display: `### ${d.title}\n*${d.category}*\n\n${d.summary}`,
+        provider: `${state.apuTelemetry.engine} (Offline Vault)`,
+        latencyMs: 3,
+        cards: [d]
+      };
     }
 
-    // E) Direct Wikipedia IT Live Search
-    const cleanTopic = query
-      .replace(/^(chi è|chi era|cosa è|cos'è|che cos'è|parlami di|cerca|dimmi tutto su|informazioni su|spiegami|jarvis|edith|doom)\s+/i, '')
-      .replace(/\?+$/, '')
-      .trim();
+    // E) Online Modules (Open-Meteo, Gemini, Wikipedia) with automatic Local Dossier Cache for Offline Recall!
+    const cachedDossiers = JSON.parse(localStorage.getItem('doom_offline_cache') || '{}');
 
-    if (cleanTopic) {
-      try {
-        const sRes = await fetch(
-          `https://it.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanTopic)}&utf8=&format=json&origin=*&srlimit=1`
-        );
-        const sJson = await sRes.json();
-        if (sJson?.query?.search?.length > 0) {
-          const bestTitle = sJson.query.search[0].title;
-          const sumRes = await fetch(
-            `https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(bestTitle)}`
+    if (navigator.onLine) {
+      // 1. Live Weather via Open-Meteo
+      if (/\b(meteo|tempo|temperatura|piove|previsioni)\b/i.test(lower)) {
+        const cityMatch =
+          query.match(/(?:meteo|tempo|temperatura|previsioni)\s+(?:a|di|per|su|in)?\s*([a-zA-ZÀ-ÿ\s]{2,25})/i) || [];
+        const targetCity =
+          (cityMatch[1] || 'Roma').replace(/\b(oggi|domani|adesso|ora|live|in tempo reale)\b/gi, '').trim() || 'Roma';
+        try {
+          const geoRes = await fetch(
+            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(targetCity)}&count=1&language=it&format=json`
           );
-          const summary = await sumRes.json();
-          if (summary && summary.extract) {
-            const prefix =
-              persona === 'edith'
-                ? `Dossier ${summary.title} acquisito.`
-                : `Agli ordini, Signore. Ho estratto il dossier verificato su ${summary.title}.`;
-            return {
+          const geo = await geoRes.json();
+          if (geo?.results?.length > 0) {
+            const p = geo.results[0];
+            const wxRes = await fetch(
+              `https://api.open-meteo.com/v1/forecast?latitude=${p.latitude}&longitude=${p.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,surface_pressure`
+            );
+            const wx = await wxRes.json();
+            if (wx?.current) {
+              const c = wx.current;
+              const cityLabel = `${p.name}${p.country ? ', ' + p.country : ''}`;
+              const speech =
+                persona === 'edith'
+                  ? `Scansione atmosferica su ${cityLabel}: ${c.temperature_2m} gradi Celsius, umidità ${c.relative_humidity_2m} percento, vento a ${c.wind_speed_10m} chilometri orari.`
+                  : `Signore, la telemetria meteo live su ${cityLabel} rileva ${c.temperature_2m} gradi Celsius, percepita ${c.apparent_temperature} gradi e vento a ${c.wind_speed_10m} chilometri orari.`;
+              const resultObj = {
+                ok: true,
+                persona,
+                speech,
+                display: `### Scansione Atmosferica — ${cityLabel}\n\nTemperatura attuale di **${c.temperature_2m}°C** (percepita ${c.apparent_temperature}°C), umidità al **${c.relative_humidity_2m}%** e vento a **${c.wind_speed_10m} km/h**.`,
+                provider: `${state.apuTelemetry.engine} + Open-Meteo Live`,
+                latencyMs: Date.now() - startTime,
+                cards: [
+                  {
+                    category: 'TELEMETRIA METEO SATELLITARE LIVE',
+                    title: `Situazione Atmosferica: ${cityLabel}`,
+                    summary: `Temperatura ${c.temperature_2m}°C, umidità ${c.relative_humidity_2m}%, pressione ${c.surface_pressure} hPa.`,
+                    metrics: [
+                      { label: 'Temperatura', value: `${c.temperature_2m} °C` },
+                      { label: 'Percepita', value: `${c.apparent_temperature} °C` },
+                      { label: 'Umidità', value: `${c.relative_humidity_2m}%` },
+                      { label: 'Vento', value: `${c.wind_speed_10m} km/h` }
+                    ]
+                  }
+                ]
+              };
+              cachedDossiers[lower] = resultObj;
+              localStorage.setItem('doom_offline_cache', JSON.stringify(cachedDossiers));
+              return resultObj;
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 2. Direct Gemini API call if configured
+      if (state.apiConfig.geminiKey) {
+        try {
+          const sys =
+            persona === 'edith'
+              ? 'Sei E.D.I.T.H. nel sistema DoomAi su iPhone 16 Pro Max. Rispondi in italiano in modo diretto e preciso.'
+              : 'Sei J.A.R.V.I.S. nel sistema DoomAi su iPhone 16 Pro Max. Rispondi in italiano con stile elegante ("Agli ordini, Signore") e completo.';
+          const gemRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.apiConfig.geminiKey)}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: sys }] },
+                contents: [{ role: 'user', parts: [{ text: query }] }]
+              })
+            }
+          );
+          const gemData = await gemRes.json();
+          const reply = gemData?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (reply) {
+            const resObj = {
               ok: true,
               persona,
-              speech: `${prefix} ${summary.extract}`,
-              display: `### ${summary.title}\n*${(summary.description || 'DOSSIER VERIFICATO').toUpperCase()}*\n\n${summary.extract}`,
-              provider: `${state.apuTelemetry.engine} + Wikipedia IT Live`,
+              speech: reply.replace(/[#*`_~>-]/g, '').slice(0, 480),
+              display: reply,
+              provider: 'Google Gemini 2.5 Flash + A18 Pro',
               latencyMs: Date.now() - startTime,
-              cards: [
-                {
-                  category: (summary.description || 'DOSSIER ENCICLOPEDICO LIVE').toUpperCase(),
-                  title: summary.title,
-                  summary: summary.extract,
-                  thumbnail: summary.thumbnail?.source || null,
-                  metrics: [
-                    { label: 'Fonte Primaria', value: 'Wikipedia (IT)' },
-                    { label: 'Modalità', value: 'OTA Live iOS' }
-                  ],
-                  sources: [
-                    {
-                      title: `${summary.title} — Wikipedia`,
-                      url: summary.content_urls?.desktop?.page || `https://it.wikipedia.org/wiki/${encodeURIComponent(bestTitle)}`
-                    }
-                  ]
-                }
-              ]
+              cards: []
             };
+            cachedDossiers[lower] = resObj;
+            localStorage.setItem('doom_offline_cache', JSON.stringify(cachedDossiers));
+            return resObj;
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
+
+      // 3. Direct Wikipedia IT Live Search
+      const cleanTopic = query
+        .replace(/^(chi è|chi era|cosa è|cos'è|che cos'è|parlami di|cerca|dimmi tutto su|informazioni su|spiegami|jarvis|edith|doom)\s+/i, '')
+        .replace(/\?+$/, '')
+        .trim();
+
+      if (cleanTopic) {
+        try {
+          const sRes = await fetch(
+            `https://it.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanTopic)}&utf8=&format=json&origin=*&srlimit=1`
+          );
+          const sJson = await sRes.json();
+          if (sJson?.query?.search?.length > 0) {
+            const bestTitle = sJson.query.search[0].title;
+            const sumRes = await fetch(
+              `https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(bestTitle)}`
+            );
+            const summary = await sumRes.json();
+            if (summary && summary.extract) {
+              const prefix =
+                persona === 'edith'
+                  ? `Dossier ${summary.title} acquisito e salvato nel vault offline.`
+                  : `Agli ordini, Signore. Ho estratto il dossier su ${summary.title} e l'ho archiviato anche per la consultazione offline.`;
+              const resObj = {
+                ok: true,
+                persona,
+                speech: `${prefix} ${summary.extract}`,
+                display: `### ${summary.title}\n*${(summary.description || 'DOSSIER VERIFICATO').toUpperCase()}*\n\n${summary.extract}`,
+                provider: `${state.apuTelemetry.engine} + Wikipedia IT Live`,
+                latencyMs: Date.now() - startTime,
+                cards: [
+                  {
+                    category: (summary.description || 'DOSSIER ENCICLOPEDICO LIVE').toUpperCase(),
+                    title: summary.title,
+                    summary: summary.extract,
+                    thumbnail: summary.thumbnail?.source || null,
+                    metrics: [
+                      { label: 'Fonte Primaria', value: 'Wikipedia (IT)' },
+                      { label: 'Cache Offline', value: 'Salvato su iPhone' }
+                    ],
+                    sources: [
+                      {
+                        title: `${summary.title} — Wikipedia`,
+                        url: summary.content_urls?.desktop?.page || `https://it.wikipedia.org/wiki/${encodeURIComponent(bestTitle)}`
+                      }
+                    ]
+                  }
+                ]
+              };
+              cachedDossiers[lower] = resObj;
+              localStorage.setItem('doom_offline_cache', JSON.stringify(cachedDossiers));
+              return resObj;
+            }
+          }
+        } catch (_) {}
+      }
     }
 
+    // F) Check Offline Cached Dossiers from previous searches!
+    if (cachedDossiers[lower]) {
+      const cached = cachedDossiers[lower];
+      return {
+        ...cached,
+        provider: `${state.apuTelemetry.engine} (Cache Offline iPhone)`,
+        latencyMs: 3
+      };
+    }
+
+    // G) Offline APU Local Synthesis Fallback
+    const offlineStatus = navigator.onLine ? 'Online' : 'Modalità Offline APU';
     const fallbackSpeech =
       persona === 'edith'
-        ? `Sistema DoomAi E.D.I.T.H. attivo per "${query}". Puoi chiedere qualsiasi dossier enciclopedico, meteo di qualsiasi città, calcoli o inserire una API Key nel tab Motore & APU.`
-        : `Signore, ho analizzato "${query}" sull'APU del suo iPhone 16 Pro Max. Può chiedermi qualsiasi ricerca enciclopedica, meteo live, calcoli o inserire una chiave API nel pannello Motore & APU.`;
+        ? `DoomAi E.D.I.T.H. [${offlineStatus}] ha elaborato "${query}" sull'APU locale. In modalità offline puoi eseguire calcoli complessi, gestire task e promemoria, chiedere il briefing vocale ("Mostra i task") e consultare tutti i dossier già archiviati.`
+        : `Signore, ho elaborato "${query}" direttamente sull'APU del suo iPhone 16 Pro Max (${offlineStatus}). Anche senza rete può ordinarmi calcoli matematici, aggiungere o leggere task e promemoria ("Mostra i miei task"), interrogare la memoria contestuale e riaprire qualsiasi dossier precedentemente cercato.`;
     return {
       ok: true,
       persona,
       speech: fallbackSpeech,
       display: fallbackSpeech,
-      provider: state.apuTelemetry.engine,
-      latencyMs: Date.now() - startTime,
-      cards: []
+      provider: `${state.apuTelemetry.engine} (${offlineStatus})`,
+      latencyMs: Math.max(4, Date.now() - startTime),
+      cards: [
+        {
+          category: 'MOTORE LOCALE ON-DEVICE (OFFLINE READY)',
+          title: `Elaborazione APU: "${query.slice(0, 40)}"`,
+          summary: 'Funzioni attive senza internet: Voce Italiana, Riconoscimento Vocale, Calcoli APU, Task & Promemoria, Memoria Contestuale e Archivio Dossier Offline.',
+          metrics: [
+            { label: 'Stato Rete', value: offlineStatus },
+            { label: 'Dossier in Cache', value: `${Object.keys(cachedDossiers).length + 4} Salvati` }
+          ]
+        }
+      ]
     };
   }
 
@@ -654,7 +823,7 @@
       text: data.display || data.speech,
       cards: data.cards || [],
       provider: data.provider || 'A18 Pro APU Core',
-      latencyMs: data.latencyMs || 8
+      latencyMs: data.latencyMs || 5
     });
 
     speakText(data.speech);
@@ -676,13 +845,13 @@
   const siriWebhookPreview = document.getElementById('siriWebhookPreview');
   document.getElementById('btnTestSiriWebhook').addEventListener('click', async () => {
     siriWebhookPreview.textContent = '// Simulazione risposta vocale Siri in corso...';
-    const json = await runStandaloneOnDeviceQuery('Meteo Roma in tempo reale');
+    const json = await runStandaloneOnDeviceQuery('Chi è Dottor Destino');
     siriWebhookPreview.textContent = JSON.stringify(json, null, 2);
     speakText(json.speech);
   });
 
   document.getElementById('btnCopyCurl').addEventListener('click', () => {
-    const info = `Frase Siri: "Ehi Siri, chiedi a Doom con DoomAi"\nInterfaccia OTA Live: https://goldenrose01.github.io/stark-os-ios-assistant/`;
+    const info = `Frase Siri: "Ehi Siri, chiedi a Doom con DoomAi"\nFunziona Online (OTA GitHub) + 100% Offline su A18 Pro APU`;
     navigator.clipboard?.writeText(info);
     siriWebhookPreview.textContent = info;
   });
@@ -820,22 +989,22 @@
     role: 'assistant',
     sender: 'DOOM AI // SOVEREIGN CORE',
     text:
-      'Sistema **DoomAi** attivo a schermo intero per **iPhone 16 Pro Max**. Questa interfaccia viene caricata **in tempo reale da GitHub (OTA Live)** dentro il guscio nativo `.ipa`: ogni modifica futura che faremo su GitHub apparirà istantaneamente premendo **Sync GitHub** in alto a destra, senza mai dover reinstallare l\'IPA con Sideloadly!',
+      'Sistema **DoomAi** attivo su **iPhone 16 Pro Max** in doppia modalità **OTA GitHub Live + 100% Offline su Memoria Interna**. Anche in **Modalità Aereo (senza internet)** l\'interfaccia completa si apre istantaneamente dalla memoria flash dell\'iPhone, permettendoti di usare voce, calcoli APU, task, promemoria, briefing e l\'archivio dei dossier salvati!',
     cards: [
       {
-        category: 'ARCHITETTURA IBRIDA OTA GITHUB + CORE IPA',
-        title: 'Zero Reinstallazioni IPA — Aggiornamenti Istantanei',
+        category: 'DOPPIA ARCHITETTURA: OTA LIVE + 100% OFFLINE FLASH',
+        title: 'Funziona Anche in Modalità Aereo (Zero Internet)',
         summary:
-          'L\'IPA conserva l\'icona Maschera d\'Oro, il microfono nativo iOS, il sintetizzatore vocale e i comandi Siri AppIntents, mentre carica l\'interfaccia sempre aggiornata da GitHub.',
+          'Quando sei connesso, DoomAi scarica e salva automaticamente su disco interno dell\'iPhone ogni nuovo aggiornamento grafico da GitHub. Quando sei offline, carica istantaneamente l\'interfaccia salvata localmente.',
         metrics: [
-          { label: 'Display', value: '6.9" Full-Screen' },
-          { label: 'UI Engine', value: 'GitHub OTA Live' },
-          { label: 'Hardware Bridge', value: 'SFSpeech + ANE' },
-          { label: 'Siri', value: 'AppIntents Attivo' }
+          { label: 'Modalità Offline', value: '100% Attiva' },
+          { label: 'Aggiornamenti UI', value: 'OTA da GitHub' },
+          { label: 'Cache Dossier', value: 'Automatica' },
+          { label: 'Voce & APU', value: 'On-Device A18 Pro' }
         ]
       }
     ],
-    provider: 'DoomAi OTA + A18 Pro ANE',
-    latencyMs: 5
+    provider: 'DoomAi OTA + Offline Flash Vault',
+    latencyMs: 4
   });
 })();

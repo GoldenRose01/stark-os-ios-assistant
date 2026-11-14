@@ -4,7 +4,7 @@ import AppIntents
 import AVFoundation
 import Speech
 
-// MARK: - 1. Riconoscimento Vocale Nativo iOS (SFSpeechRecognizer + AVAudioEngine)
+// MARK: - 1. Riconoscimento Vocale Nativo iOS (SFSpeechRecognizer + AVAudioEngine — Supporta Offline On-Device)
 @MainActor
 final class StarkSpeechRecognizer: ObservableObject {
     @Published var isRecording = false
@@ -107,13 +107,11 @@ final class StarkSpeechRecognizer: ObservableObject {
     }
 }
 
-// MARK: - 2. Guscio Nativo OTA GitHub (WKWebView Full-Screen + Bridge Hardware doomNative)
+// MARK: - 2. Motore Ibrido OTA GitHub + Memoria Flash Offline (Documents/DoomOTA/)
 @available(iOS 16.0, *)
-struct DoomGitHubOTAWebView: UIViewRepresentable {
-    let remoteURLString: String
+struct DoomHybridOfflineOTAWebView: UIViewRepresentable {
     @ObservedObject var engine: HybridAPUEngine
     @ObservedObject var speechRec: StarkSpeechRecognizer
-    @Binding var loadFailedOffline: Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -136,7 +134,7 @@ struct DoomGitHubOTAWebView: UIViewRepresentable {
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.bounces = true
 
-        // Pull-to-refresh nativo iOS per ricaricare istantaneamente l'interfaccia da GitHub
+        // Pull-to-refresh nativo per scaricare gli aggiornamenti da GitHub e salvarli nella Flash Offline
         let refreshControl = UIRefreshControl()
         refreshControl.tintColor = UIColor(red: 0.94, green: 0.76, blue: 0.22, alpha: 1.0)
         refreshControl.addTarget(context.coordinator, action: #selector(Coordinator.handlePullToRefresh(_:)), for: .valueChanged)
@@ -144,7 +142,7 @@ struct DoomGitHubOTAWebView: UIViewRepresentable {
 
         context.coordinator.webView = webView
         context.coordinator.bindSpeechCallbacks()
-        context.coordinator.loadFreshFromGitHub()
+        context.coordinator.bootOfflineAndSyncGitHub()
 
         return webView
     }
@@ -153,12 +151,103 @@ struct DoomGitHubOTAWebView: UIViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        var parent: DoomGitHubOTAWebView
+        var parent: DoomHybridOfflineOTAWebView
         weak var webView: WKWebView?
         private let synthesizer = AVSpeechSynthesizer()
+        private let githubRawBase = "https://raw.githubusercontent.com/GoldenRose01/stark-os-ios-assistant/main/docs"
+        private let otaFiles = ["index.html", "index.css", "app.js", "manifest.json"]
 
-        init(parent: DoomGitHubOTAWebView) {
+        init(parent: DoomHybridOfflineOTAWebView) {
             self.parent = parent
+        }
+
+        // Restituisce la cartella persistente Documents/DoomOTA/ nella memoria Flash dell'iPhone
+        private func getLocalOTADirectory() -> URL {
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let otaDir = docs.appendingPathComponent("DoomOTA", isDirectory: true)
+            if !FileManager.default.fileExists(atPath: otaDir.path) {
+                try? FileManager.default.createDirectory(at: otaDir, withIntermediateDirectories: true)
+            }
+            return otaDir
+        }
+
+        // Inizializza la memoria Flash Offline copiando i file da OfflineUI/ dentro il bundle dell'IPA
+        private func ensureOfflineFlashSeeded() {
+            let otaDir = getLocalOTADirectory()
+            let fm = FileManager.default
+            guard let bundleOfflineDir = Bundle.main.resourceURL?.appendingPathComponent("OfflineUI") else { return }
+
+            for fileName in ["index.html", "index.css", "app.js", "doom-mask.png", "manifest.json"] {
+                let destURL = otaDir.appendingPathComponent(fileName)
+                let srcURL = bundleOfflineDir.appendingPathComponent(fileName)
+                if !fm.fileExists(atPath: destURL.path), fm.fileExists(atPath: srcURL.path) {
+                    try? fm.copyItem(at: srcURL, to: destURL)
+                }
+            }
+        }
+
+        // Carica l'interfaccia istantaneamente dalla memoria Flash interna dell'iPhone (100% Offline Ready)
+        func loadFromLocalFlash() {
+            ensureOfflineFlashSeeded()
+            let otaDir = getLocalOTADirectory()
+            let indexURL = otaDir.appendingPathComponent("index.html")
+            if FileManager.default.fileExists(atPath: indexURL.path) {
+                webView?.loadFileURL(indexURL, allowingReadAccessTo: otaDir)
+            } else if let bundleIndex = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "OfflineUI"),
+                      let bundleDir = Bundle.main.resourceURL?.appendingPathComponent("OfflineUI") {
+                webView?.loadFileURL(bundleIndex, allowingReadAccessTo: bundleDir)
+            }
+        }
+
+        // Avvio Ibrido: 1) Apre subito l'interfaccia Offline dalla Flash in 0.05s, 2) Se c'è rete sincronizza in background da GitHub
+        func bootOfflineAndSyncGitHub() {
+            loadFromLocalFlash()
+            Task {
+                await syncLatestFromGitHub(forceReload: false)
+            }
+        }
+
+        // Scarica gli ultimi file da GitHub e li salva permanentemente nella memoria Flash Offline dell'iPhone
+        func syncLatestFromGitHub(forceReload: Bool) async {
+            ensureOfflineFlashSeeded()
+            let otaDir = getLocalOTADirectory()
+            let ts = Int(Date().timeIntervalSince1970)
+            var updatedAnyFile = false
+
+            let config = URLSessionConfiguration.ephemeral
+            config.timeoutIntervalForRequest = 7
+            let session = URLSession(configuration: config)
+
+            for fileName in otaFiles {
+                guard let remoteURL = URL(string: "\(githubRawBase)/\(fileName)?t=\(ts)") else { continue }
+                do {
+                    let (data, response) = try await session.data(from: remoteURL)
+                    guard let httpResp = response as? HTTPURLResponse, httpResp.statusCode == 200, !data.isEmpty else {
+                        continue
+                    }
+                    let localURL = otaDir.appendingPathComponent(fileName)
+                    let existingData = try? Data(contentsOf: localURL)
+                    if existingData != data {
+                        try data.write(to: localURL, options: .atomic)
+                        updatedAnyFile = true
+                    }
+                } catch {
+                    // Se siamo offline, mantiene intatti i file già salvati nella memoria Flash!
+                }
+            }
+
+            if updatedAnyFile || forceReload {
+                loadFromLocalFlash()
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                sendEventToJS(["type": "otaStatus", "message": updatedAnyFile ? "Aggiornato da GitHub!" : "Già all'ultima versione"])
+            }
+        }
+
+        @objc func handlePullToRefresh(_ sender: UIRefreshControl) {
+            Task {
+                await syncLatestFromGitHub(forceReload: true)
+                sender.endRefreshing()
+            }
         }
 
         func bindSpeechCallbacks() {
@@ -173,27 +262,12 @@ struct DoomGitHubOTAWebView: UIViewRepresentable {
             }
         }
 
-        func loadFreshFromGitHub() {
-            let ts = Int(Date().timeIntervalSince1970)
-            guard let url = URL(string: "\(parent.remoteURLString)?ota=\(ts)") else { return }
-            let req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 12)
-            webView?.load(req)
-        }
-
-        @objc func handlePullToRefresh(_ sender: UIRefreshControl) {
-            loadFreshFromGitHub()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-                sender.endRefreshing()
-            }
-        }
-
         func sendEventToJS(_ dict: [String: Any]) {
             guard let data = try? JSONSerialization.data(withJSONObject: dict),
                   let jsonStr = String(data: data, encoding: .utf8) else { return }
             webView?.evaluateJavaScript("window.onDoomNativeEvent && window.onDoomNativeEvent(\(jsonStr));", completionHandler: nil)
         }
 
-        // Gestione messaggi provenienti dall'interfaccia caricata da GitHub
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             guard message.name == "doomNative",
                   let body = message.body as? [String: Any],
@@ -217,7 +291,9 @@ struct DoomGitHubOTAWebView: UIViewRepresentable {
                 parent.speechRec.toggleRecording()
 
             case "reloadOTA":
-                loadFreshFromGitHub()
+                Task {
+                    await syncLatestFromGitHub(forceReload: true)
+                }
 
             case "syncConfig":
                 if let persona = body["persona"] as? String {
@@ -237,68 +313,24 @@ struct DoomGitHubOTAWebView: UIViewRepresentable {
                 break
             }
         }
-
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            parent.loadFailedOffline = true
-        }
     }
 }
 
-// MARK: - 3. Vista Principale dell'App Nativa DoomAi (Carica UI da GitHub a Schermo Intero 6.9")
+// MARK: - 3. Vista Principale Full-Screen 6.9" per iPhone 16 Pro Max (Online OTA + 100% Offline Flash)
 @available(iOS 16.0, *)
 struct StarkHUDView: View {
     @StateObject private var engine = HybridAPUEngine.shared
     @StateObject private var speechRec = StarkSpeechRecognizer()
-    @State private var loadFailedOffline = false
-
-    // URL Live GitHub Pages del tuo repository (ogni push su GitHub aggiorna istantaneamente l'app!)
-    private let githubLiveURL = "https://goldenrose01.github.io/stark-os-ios-assistant/"
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea(.all)
 
-            if !loadFailedOffline {
-                DoomGitHubOTAWebView(
-                    remoteURLString: githubLiveURL,
-                    engine: engine,
-                    speechRec: speechRec,
-                    loadFailedOffline: $loadFailedOffline
-                )
-                .ignoresSafeArea(.all)
-            } else {
-                // Fallback Offline Nativo se l'iPhone è senza connessione Internet
-                VStack(spacing: 18) {
-                    Image("DoomMaskLogo")
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 110, height: 110)
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color(red: 0.94, green: 0.76, blue: 0.22), lineWidth: 2.5))
-
-                    Text("DOOM AI // MODALITÀ OFFLINE APU")
-                        .font(.system(size: 17, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color(red: 0.94, green: 0.76, blue: 0.22))
-
-                    Text("Connessione assente per scaricare l'interfaccia live da GitHub. Verifica il Wi-Fi/5G e premi Riconnetti.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 28)
-
-                    Button {
-                        loadFailedOffline = false
-                    } label: {
-                        Text("Riconnetti a GitHub Live")
-                            .font(.system(size: 14, weight: .bold, design: .monospaced))
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 12)
-                            .background(Color(red: 0.94, green: 0.76, blue: 0.22))
-                            .foregroundStyle(.black)
-                            .clipShape(Capsule())
-                    }
-                }
-            }
+            DoomHybridOfflineOTAWebView(
+                engine: engine,
+                speechRec: speechRec
+            )
+            .ignoresSafeArea(.all)
         }
         .preferredColorScheme(.dark)
     }
