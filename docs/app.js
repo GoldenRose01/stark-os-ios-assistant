@@ -1261,7 +1261,132 @@
     } catch (_) {}
   }
 
+  // 13. Mini-Configuratore Griglia Stile Home iOS
+  function initIOSGridConfigurator() {
+    const DEFAULT_GRID = {
+      order: ['head', 'controls', 'telemetry', 'presets', 'console'],
+      spans: { head: 2, controls: 2, telemetry: 2, presets: 2, console: 2 },
+      hidden: [],
+      fontScale: 'sm',
+      headScale: 'md'
+    };
+
+    const WIDGET_NAMES = {
+      head: 'Testa & Satelliti',
+      controls: 'Protocollo & Voce',
+      telemetry: 'Telemetria APU',
+      presets: 'Azioni Rapide',
+      console: 'Console & Chat'
+    };
+
+    let layout = (() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem('doom_grid_layout_v1') || 'null');
+        if (saved && Array.isArray(saved.order)) return { ...DEFAULT_GRID, ...saved };
+      } catch (_) {}
+      return { ...DEFAULT_GRID, spans: { ...DEFAULT_GRID.spans }, hidden: [] };
+    })();
+
+    const gridEl = document.getElementById('iosWidgetGrid');
+    const btnEdit = document.getElementById('btnToggleGridEdit');
+    const hiddenPillsEl = document.getElementById('hiddenWidgetsPills');
+
+    function saveAndApplyGrid() {
+      localStorage.setItem('doom_grid_layout_v1', JSON.stringify(layout));
+
+      // Reorder DOM nodes inside gridEl
+      layout.order.forEach((id) => {
+        const w = gridEl.querySelector(`[data-widget-id="${id}"]`);
+        if (w) gridEl.appendChild(w);
+      });
+
+      // Apply span (1x / 2x) and hidden state
+      gridEl.querySelectorAll('.hud-widget').forEach((w) => {
+        const id = w.getAttribute('data-widget-id');
+        const span = layout.spans[id] === 1 ? 1 : 2;
+        w.setAttribute('data-span', String(span));
+        w.classList.toggle('widget-hidden', layout.hidden.includes(id));
+        const spanBtn = w.querySelector('[data-act="span"]');
+        if (spanBtn) spanBtn.textContent = span === 1 ? '1×' : '2×';
+      });
+
+      // Update font/head segmented buttons
+      document.querySelectorAll('#fontScaleGroup .seg-btn').forEach((b) => {
+        b.classList.toggle('active', b.getAttribute('data-font') === layout.fontScale);
+      });
+      document.querySelectorAll('#headScaleGroup .seg-btn').forEach((b) => {
+        b.classList.toggle('active', b.getAttribute('data-head') === layout.headScale);
+      });
+
+      // Render restore pills for hidden widgets
+      if (hiddenPillsEl) {
+        hiddenPillsEl.innerHTML = layout.hidden
+          .map((id) => `<button type="button" class="ota-mini-btn" data-restore-id="${id}">+ ${WIDGET_NAMES[id] || id}</button>`)
+          .join('');
+        hiddenPillsEl.querySelectorAll('[data-restore-id]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const rid = btn.getAttribute('data-restore-id');
+            layout.hidden = layout.hidden.filter((x) => x !== rid);
+            saveAndApplyGrid();
+          });
+        });
+      }
+
+      calibrateDynamicViewport();
+    }
+
+    if (btnEdit) {
+      btnEdit.addEventListener('click', () => {
+        const isEditing = document.body.classList.toggle('grid-edit-mode');
+        btnEdit.classList.toggle('active', isEditing);
+        btnEdit.textContent = isEditing ? 'Fine' : 'Modifica Griglia';
+      });
+    }
+
+    document.querySelectorAll('#fontScaleGroup .seg-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        layout.fontScale = btn.getAttribute('data-font') || 'sm';
+        saveAndApplyGrid();
+      });
+    });
+
+    document.querySelectorAll('#headScaleGroup .seg-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        layout.headScale = btn.getAttribute('data-head') || 'md';
+        saveAndApplyGrid();
+      });
+    });
+
+    document.getElementById('btnResetGridLayout')?.addEventListener('click', () => {
+      layout = { ...DEFAULT_GRID, order: [...DEFAULT_GRID.order], spans: { ...DEFAULT_GRID.spans }, hidden: [] };
+      saveAndApplyGrid();
+    });
+
+    gridEl?.querySelectorAll('.hud-widget').forEach((w) => {
+      const id = w.getAttribute('data-widget-id');
+      w.querySelectorAll('.we-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const act = btn.getAttribute('data-act');
+          const idx = layout.order.indexOf(id);
+          if (act === 'up' && idx > 0) {
+            [layout.order[idx - 1], layout.order[idx]] = [layout.order[idx], layout.order[idx - 1]];
+          } else if (act === 'down' && idx < layout.order.length - 1) {
+            [layout.order[idx + 1], layout.order[idx]] = [layout.order[idx], layout.order[idx + 1]];
+          } else if (act === 'span') {
+            layout.spans[id] = layout.spans[id] === 1 ? 2 : 1;
+          } else if (act === 'hide') {
+            if (!layout.hidden.includes(id)) layout.hidden.push(id);
+          }
+          saveAndApplyGrid();
+        });
+      });
+    });
+
+    saveAndApplyGrid();
+  }
+
   // Boot Sequence
+  initIOSGridConfigurator();
   applyPersona(state.persona);
   btnToggleTts.textContent = `Voce: ${state.ttsEnabled ? 'ON' : 'OFF'}`;
   detectHardwareAPU();
@@ -1273,24 +1398,24 @@
 
   appendStreamMessage({
     role: 'assistant',
-    sender: 'DOOM AI // NEURAL GRID v4.2',
+    sender: 'DOOM AI // NEURAL GRID v4.3',
     text:
-      'Interfaccia **Neural Sovereign v4.2** attiva a pieno schermo. La **Testa d\'Oro di Doctor Doom** è ora posizionata in alto al centro circondata dalla **Griglia Circolare di 16 Satelliti Neurali** che pulsano in sincronia con la voce e il calcolo AI. Nel menu **Motore & APU** trovi ora esclusivamente gli spazi per **API ChatGPT** e **API Gemini**.',
+      'Interfaccia **v4.3** attiva con **Schermo Intero Nativo 6.9"** e **Mini-Configuratore Griglia Stile Home iOS**. Tocca **Modifica Griglia** in alto a destra per spostare ogni widget, ridimensionarlo (`1×` / `2×`), nasconderlo o regolare la grandezza di **Testo** e **Testa**.',
     cards: [
       {
-        category: 'AGGIORNAMENTO ARCHITETTURA v4.2',
-        title: 'Griglia Satellitare Neurale + Siri URL Scheme',
+        category: 'SISTEMA MODULARE v4.3',
+        title: 'Schermo Intero iPhone 16 Pro Max + Griglia Personalizzabile',
         summary:
-          'Risolto il blocco della cache OTA di GitHub, adattato lo schermo nativo 6.9" di iPhone 16 Pro Max senza bande nere e abilitato il protocollo doomai:// per i Comandi Rapidi Siri.',
+          'Risolto il file Info.plist interno all\'IPA per eliminare definitivamente le bande nere e il fattore di zoom. Ora tutti i font sono compatti e configurabili.',
         metrics: [
-          { label: 'Satelliti Attivi', value: '16 Nodi Neurali' },
-          { label: 'Motori Cloud', value: 'ChatGPT & Gemini' },
+          { label: 'Satelliti', value: '16 Nodi Neurali' },
+          { label: 'API Cloud', value: 'ChatGPT & Gemini' },
           { label: 'Ponte Siri', value: 'doomai:// Attivo' },
-          { label: 'Modalità Offline', value: '100% Flash APU' }
+          { label: 'Griglia Home', value: 'Personalizzabile' }
         ]
       }
     ],
-    provider: 'DoomAi Neural Grid v4.2',
+    provider: 'DoomAi Neural Grid v4.3',
     latencyMs: 3
   });
 })();

@@ -40,6 +40,7 @@ jobs:
       - name: Crea Pacchetto Installabile DoomAi-iOS.ipa
         working-directory: ios-native
         run: |
+          plutil -p build/Build/Products/Release-iphoneos/DoomAi.app/Info.plist
           mkdir -p Payload
           cp -r build/Build/Products/Release-iphoneos/DoomAi.app Payload/
           zip -r9 DoomAi-iOS.ipa Payload

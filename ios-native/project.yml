@@ -15,15 +15,13 @@ targets:
       - path: UI
       - path: Assets.xcassets
       - path: LaunchScreen.storyboard
-    info:
-      path: Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.latveria.doomai
         PRODUCT_NAME: DoomAi
-        INFOPLIST_KEY_CFBundleDisplayName: DoomAi
+        GENERATE_INFOPLIST_FILE: "NO"
+        INFOPLIST_FILE: Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGNING_ALLOWED: "NO"

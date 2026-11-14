@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>DoomAi — Neural Sovereign HUD (iPhone 16 Pro Max)</title>
-  <meta name="description" content="DoomAi Sovereign AI Assistant con Griglia Neurale Satellitare, ChatGPT &amp; Gemini API, esecuzione Offline APU A18 Pro e Comandi Vocali Siri." />
+  <title>DoomAi — Neural Sovereign HUD</title>
+  <meta name="description" content="DoomAi Sovereign AI Assistant con Griglia Neurale Satellitare, Mini-Configuratore Home iOS, ChatGPT &amp; Gemini API e Comandi Siri." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="DoomAi" />
@@ -17,71 +17,160 @@
 <body data-persona="jarvis">
   <div class="app-shell">
 
-    <!-- VIEW 1: NEURAL SATELLITE HUD (TOP-CENTER DOOM HEAD + ORBITAL SATELLITE GRID) -->
+    <!-- VIEW 1: MODULAR iOS HOME-STYLE NEURAL HUD -->
     <main class="workspace-view active" id="view-hud">
-      <!-- Top-Center Neural Satellite Stage -->
-      <section class="neural-hero-stage" aria-label="Nucleo Neurale DoomAi">
-        <div class="neural-top-pills">
-          <span class="neural-badge" id="voiceStateBadge">NEURAL GRID ATTIVA</span>
-          <span class="neural-badge neural-badge-subtle" id="telemetrySiri">OTA v4.2 // LIVE</span>
-          <button type="button" class="ota-mini-btn" id="btnOtaReload" title="Aggiorna istantaneamente l'estetica da GitHub">Sync GitHub</button>
-        </div>
 
-        <!-- Circular Satellite Grid + Center Golden Doom Head -->
-        <div class="reactor-wrapper" id="reactorTouchArea" title="Tocca la Testa di Doom per attivare l'ascolto vocale">
-          <canvas id="reactorCanvas" width="520" height="520"></canvas>
-          <div class="reactor-head-core">
-            <img src="./doom-mask.png" alt="DoomAi Golden Head" class="reactor-center-mask" id="brandMaskImg" />
+      <!-- Compact Status & iOS Home Grid Edit Bar -->
+      <div class="hud-top-toolbar">
+        <span class="neural-badge" id="voiceStateBadge">NEURAL GRID</span>
+        <span class="neural-badge neural-badge-subtle" id="telemetrySiri">v4.3 LIVE</span>
+        <div class="toolbar-actions">
+          <button type="button" class="ota-mini-btn" id="btnToggleGridEdit">Modifica Griglia</button>
+          <button type="button" class="ota-mini-btn" id="btnOtaReload">Sync GitHub</button>
+        </div>
+      </div>
+
+      <!-- Mini-Configuratore Stile Home iOS (visibile quando "Modifica Griglia" è attivo) -->
+      <section class="grid-configurator-drawer" id="gridConfiguratorDrawer" aria-label="Configuratore Griglia Home">
+        <div class="config-row">
+          <span class="config-label">Testo:</span>
+          <div class="seg-group" id="fontScaleGroup">
+            <button type="button" class="seg-btn" data-font="sm">Piccolo</button>
+            <button type="button" class="seg-btn" data-font="md">Medio</button>
+            <button type="button" class="seg-btn" data-font="lg">Grande</button>
           </div>
         </div>
-
-        <h1 class="neural-title" id="systemHeaderTitle">DOOM AI // NEURAL SOVEREIGN</h1>
-        <p class="voice-status-text" id="voiceStatusText">Tocca la Maschera d'Oro al centro o parla per attivare la rete satellitare</p>
-
-        <!-- Compact Protocol & Voice Bar directly below the Head -->
-        <div class="hud-control-strip">
-          <div class="persona-switcher" role="group" aria-label="Protocollo Operativo">
-            <button type="button" class="persona-btn active" id="btnPersonaJarvis" data-persona="jarvis">J.A.R.V.I.S.</button>
-            <button type="button" class="persona-btn" id="btnPersonaEdith" data-persona="edith">E.D.I.T.H.</button>
+        <div class="config-row">
+          <span class="config-label">Testa:</span>
+          <div class="seg-group" id="headScaleGroup">
+            <button type="button" class="seg-btn" data-head="sm">Compatta</button>
+            <button type="button" class="seg-btn" data-head="md">Media</button>
+            <button type="button" class="seg-btn" data-head="lg">Grande</button>
           </div>
-          <button type="button" class="btn btn-primary" id="btnToggleMic">Ascolto Vocale</button>
-          <button type="button" class="btn" id="btnToggleTts">Voce: ON</button>
         </div>
-
-        <!-- Compact Neural Telemetry Bar -->
-        <div class="micro-telemetry-bar">
-          <span>APU: <strong id="telemetryApu">A18 Pro ANE</strong></span>
-          <span>&bull;</span>
-          <span>MOTORE: <strong id="telemetryProvider">Neural Hybrid</strong></span>
-          <span>&bull;</span>
-          <span>PING: <strong id="telemetryLatency">4 ms</strong></span>
-        </div>
-
-        <!-- Quick Neural Presets -->
-        <div class="preset-list" id="presetContainer">
-          <button type="button" class="preset-chip" data-query="Meteo Roma in tempo reale">Meteo Roma</button>
-          <button type="button" class="preset-chip" data-query="Chi è Dottor Destino">Doctor Doom</button>
-          <button type="button" class="preset-chip" data-query="Mostra i miei task">Briefing Task</button>
-          <button type="button" class="preset-chip" data-query="Calcola (1450 * 18.5) + 3200">Calcolo APU</button>
-          <button type="button" class="preset-chip" data-query="Cos'è un buco nero">Buchi Neri</button>
+        <div class="config-row" style="justify-content: space-between;">
+          <div class="hidden-widgets-pills" id="hiddenWidgetsPills"></div>
+          <button type="button" class="ota-mini-btn" id="btnResetGridLayout">Ripristina Default</button>
         </div>
       </section>
 
-      <!-- Command Input & Intelligence Stream -->
-      <section class="console-column">
-        <form class="command-bar" id="commandForm">
-          <input
-            type="text"
-            id="commandInput"
-            class="command-input"
-            placeholder="Ordina a DoomAi (ChatGPT, Gemini, Meteo, Dossier, Calcoli)..."
-            autocomplete="off"
-          />
-          <button type="submit" class="btn btn-primary" id="btnSendCommand">Invia</button>
-        </form>
+      <!-- 2-Column iOS Home-Screen Style Modular Widget Grid -->
+      <div class="ios-widget-grid" id="iosWidgetGrid">
 
-        <div class="stream-container" id="streamContainer" aria-live="polite"></div>
-      </section>
+        <!-- WIDGET 1: TOP-CENTER DOOM HEAD + 16 SATELLITES -->
+        <section class="hud-widget neural-hero-stage" data-widget-id="head" data-span="2">
+          <div class="widget-edit-bar">
+            <span class="widget-edit-title">Testa &amp; Satelliti</span>
+            <div class="widget-edit-btns">
+              <button type="button" class="we-btn" data-act="up" title="Sposta su">&uarr;</button>
+              <button type="button" class="we-btn" data-act="down" title="Sposta giù">&darr;</button>
+              <button type="button" class="we-btn" data-act="span" title="Cambia larghezza 1x/2x">2&times;</button>
+              <button type="button" class="we-btn we-hide" data-act="hide" title="Nascondi widget">&times;</button>
+            </div>
+          </div>
+
+          <div class="reactor-wrapper" id="reactorTouchArea" title="Tocca la Testa di Doom per parlare">
+            <canvas id="reactorCanvas" width="520" height="520"></canvas>
+            <div class="reactor-head-core">
+              <img src="./doom-mask.png" alt="DoomAi Golden Head" class="reactor-center-mask" id="brandMaskImg" />
+            </div>
+          </div>
+
+          <h1 class="neural-title" id="systemHeaderTitle">DOOM AI // NEURAL SOVEREIGN</h1>
+          <p class="voice-status-text" id="voiceStatusText">Tocca la Maschera d'Oro al centro per parlare</p>
+        </section>
+
+        <!-- WIDGET 2: PROTOCOL & VOICE CONTROLS -->
+        <section class="hud-widget widget-card" data-widget-id="controls" data-span="2">
+          <div class="widget-edit-bar">
+            <span class="widget-edit-title">Protocollo &amp; Voce</span>
+            <div class="widget-edit-btns">
+              <button type="button" class="we-btn" data-act="up">&uarr;</button>
+              <button type="button" class="we-btn" data-act="down">&darr;</button>
+              <button type="button" class="we-btn" data-act="span">2&times;</button>
+              <button type="button" class="we-btn we-hide" data-act="hide">&times;</button>
+            </div>
+          </div>
+
+          <div class="hud-control-strip">
+            <div class="persona-switcher" role="group" aria-label="Protocollo">
+              <button type="button" class="persona-btn active" id="btnPersonaJarvis" data-persona="jarvis">J.A.R.V.I.S.</button>
+              <button type="button" class="persona-btn" id="btnPersonaEdith" data-persona="edith">E.D.I.T.H.</button>
+            </div>
+            <button type="button" class="btn btn-primary" id="btnToggleMic">Ascolta</button>
+            <button type="button" class="btn" id="btnToggleTts">Voce: ON</button>
+          </div>
+        </section>
+
+        <!-- WIDGET 3: TELEMETRY -->
+        <section class="hud-widget widget-card" data-widget-id="telemetry" data-span="2">
+          <div class="widget-edit-bar">
+            <span class="widget-edit-title">Telemetria APU</span>
+            <div class="widget-edit-btns">
+              <button type="button" class="we-btn" data-act="up">&uarr;</button>
+              <button type="button" class="we-btn" data-act="down">&darr;</button>
+              <button type="button" class="we-btn" data-act="span">2&times;</button>
+              <button type="button" class="we-btn we-hide" data-act="hide">&times;</button>
+            </div>
+          </div>
+
+          <div class="micro-telemetry-bar">
+            <span>APU: <strong id="telemetryApu">A18 Pro ANE</strong></span>
+            <span>&bull;</span>
+            <span>MOTORE: <strong id="telemetryProvider">Neural Hybrid</strong></span>
+            <span>&bull;</span>
+            <span>PING: <strong id="telemetryLatency">4 ms</strong></span>
+          </div>
+        </section>
+
+        <!-- WIDGET 4: QUICK PRESETS -->
+        <section class="hud-widget widget-card" data-widget-id="presets" data-span="2">
+          <div class="widget-edit-bar">
+            <span class="widget-edit-title">Azioni Rapide</span>
+            <div class="widget-edit-btns">
+              <button type="button" class="we-btn" data-act="up">&uarr;</button>
+              <button type="button" class="we-btn" data-act="down">&darr;</button>
+              <button type="button" class="we-btn" data-act="span">2&times;</button>
+              <button type="button" class="we-btn we-hide" data-act="hide">&times;</button>
+            </div>
+          </div>
+
+          <div class="preset-list" id="presetContainer">
+            <button type="button" class="preset-chip" data-query="Meteo Roma in tempo reale">Meteo Roma</button>
+            <button type="button" class="preset-chip" data-query="Chi è Dottor Destino">Doctor Doom</button>
+            <button type="button" class="preset-chip" data-query="Mostra i miei task">Briefing Task</button>
+            <button type="button" class="preset-chip" data-query="Calcola (1450 * 18.5) + 3200">Calcolo APU</button>
+            <button type="button" class="preset-chip" data-query="Cos'è un buco nero">Buchi Neri</button>
+          </div>
+        </section>
+
+        <!-- WIDGET 5: COMMAND INPUT & AI STREAM -->
+        <section class="hud-widget console-column" data-widget-id="console" data-span="2">
+          <div class="widget-edit-bar">
+            <span class="widget-edit-title">Console &amp; Chat</span>
+            <div class="widget-edit-btns">
+              <button type="button" class="we-btn" data-act="up">&uarr;</button>
+              <button type="button" class="we-btn" data-act="down">&darr;</button>
+              <button type="button" class="we-btn" data-act="span">2&times;</button>
+              <button type="button" class="we-btn we-hide" data-act="hide">&times;</button>
+            </div>
+          </div>
+
+          <form class="command-bar" id="commandForm">
+            <input
+              type="text"
+              id="commandInput"
+              class="command-input"
+              placeholder="Ordina a DoomAi (ChatGPT, Gemini, Meteo, Calcoli)..."
+              autocomplete="off"
+            />
+            <button type="submit" class="btn btn-primary" id="btnSendCommand">Invia</button>
+          </form>
+
+          <div class="stream-container" id="streamContainer" aria-live="polite"></div>
+        </section>
+
+      </div>
     </main>
 
     <!-- VIEW 2: MOTORE & APU (SOLO API CHATGPT & API GEMINI) -->
@@ -94,7 +183,7 @@
           </div>
 
           <p class="panel-desc">
-            Inserisci la tua chiave <strong>API ChatGPT (OpenAI)</strong> o <strong>API Gemini (Google)</strong>. Le chiavi restano salvate nella memoria sicura del tuo iPhone 16 Pro Max e vengono usate sia nella console sia nei comandi vocali Siri. Senza chiavi, DoomAi usa il motore gratuito Live + APU Offline.
+            Inserisci la tua chiave <strong>API ChatGPT (OpenAI)</strong> o <strong>API Gemini (Google)</strong>. Le chiavi restano salvate nella memoria sicura del tuo iPhone e vengono usate sia nella console sia nei comandi vocali Siri.
           </p>
 
           <div class="form-group">
@@ -192,17 +281,16 @@
             <span class="panel-badge">URL SCHEME ATTIVO</span>
           </div>
           <p class="panel-desc">
-            Poiché Sideloadly usa un Apple ID gratuito (che modifica il Bundle ID e blocca i permessi Apple a pagamento per <em>AppIntents</em> automatici), DoomAi include il protocollo diretto <code>doomai://</code> per far funzionare <strong>"Ehi Siri"</strong> al 100% tramite l'app <strong>Comandi Rapidi</strong> di iPhone!
+            Con Sideloadly su Apple ID gratuito, DoomAi usa il protocollo diretto <code>doomai://</code> per far funzionare <strong>"Ehi Siri"</strong> tramite l'app <strong>Comandi Rapidi</strong> di iPhone.
           </p>
 
-          <div class="dossier-card" style="margin-bottom: 12px;">
-            <span class="dossier-cat">CONFIGURAZIONE RAPIDA IN 20 SECONDI (UNA SOLA VOLTA)</span>
+          <div class="dossier-card" style="margin-bottom: 10px;">
+            <span class="dossier-cat">CONFIGURAZIONE IN 20 SECONDI</span>
             <div class="dossier-title">Come attivare "Ehi Siri, Chiedi a Doom"</div>
             <div class="siri-steps-list">
-              <div><strong>1.</strong> Tocca <strong>"Apri Comandi Rapidi &amp; Copia URL"</strong> qui sotto (l'indirizzo <code>doomai://ask?q=</code> viene copiato in automatico).</div>
-              <div><strong>2.</strong> Nell'app <em>Comandi Rapidi</em> di iPhone tocca <strong>+</strong> in alto a destra e rinomina il comando in <strong>"Chiedi a Doom"</strong>.</div>
-              <div><strong>3.</strong> Aggiungi l'azione <strong>"Chiedi input"</strong> (Testo, con messaggio <em>"Qual è il tuo ordine?"</em>).</div>
-              <div><strong>4.</strong> Aggiungi l'azione <strong>"Apri URL"</strong> e incolla <code>doomai://ask?q=</code> seguito dalla variabile <em>Input fornito</em> (oppure usa semplicemente <code>doomai://voice</code> per avviare subito il microfono di DoomAi!).</div>
+              <div><strong>1.</strong> Tocca <strong>"Apri Comandi Rapidi &amp; Copia URL"</strong> qui sotto.</div>
+              <div><strong>2.</strong> In <em>Comandi Rapidi</em> tocca <strong>+</strong> e chiamalo <strong>"Chiedi a Doom"</strong>.</div>
+              <div><strong>3.</strong> Aggiungi <strong>"Apri URL"</strong> con <code>doomai://voice</code> (ascolto vocale immediato) oppure <strong>"Chiedi input"</strong> + <code>doomai://ask?q=</code> + <em>Input fornito</em>.</div>
             </div>
           </div>
 
@@ -212,9 +300,9 @@
             <button type="button" class="btn" id="btnTestSiriWebhook">Simula Risposta Vocale Siri</button>
           </div>
 
-          <pre class="code-viewer" id="siriWebhookPreview" style="margin-top: 12px;">// URL Scheme Registrati nell'IPA v4:
-// 1) doomai://voice           -> Apre DoomAi e attiva subito il microfono vocale
-// 2) doomai://ask?q=Domanda   -> Esegue la domanda su ChatGPT/Gemini/APU e parla ad alta voce</pre>
+          <pre class="code-viewer" id="siriWebhookPreview" style="margin-top: 10px;">// URL Scheme Registrati:
+// doomai://voice         -> Avvia subito il microfono di DoomAi
+// doomai://ask?q=Domanda -> Esegue e legge la risposta ad alta voce</pre>
         </div>
       </div>
     </section>
