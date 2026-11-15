@@ -831,7 +831,7 @@
     if (!query || state.isProcessing) return;
 
     state.isProcessing = true;
-    voiceStateBadge.textContent = 'ELABORAZIONE...';
+    if (voiceStateBadge) voiceStateBadge.textContent = 'ELABORAZIONE...';
     commandInput.value = '';
 
     appendStreamMessage({
