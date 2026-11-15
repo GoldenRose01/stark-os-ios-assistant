@@ -296,12 +296,12 @@
 
     return {
       angle: r1 * Math.PI * 2,
-      speed: (idx % 2 === 0 ? 1 : -1) * (0.011 + r2 * 0.014),
+      speed: (idx % 2 === 0 ? 1 : -1) * (0.012 + r2 * 0.015),
       tilt: (r1 - 0.5) * Math.PI * 1.15,
       tiltSpeed: (r2 - 0.5) * 0.0045,
-      rx: 132 + r1 * 86,
-      ry: 48 + r2 * 56,
-      size: 3.3 + (idx % 3) * 0.85,
+      rx: 138 + r1 * 88,
+      ry: 52 + r2 * 62,
+      size: 6.0 + (idx % 3) * 1.4,
       color
     };
   });
@@ -352,12 +352,12 @@
       const sinT = Math.sin(sat.tilt);
       const x = cx + localX * cosT - localY * sinT;
       const y = cy + localX * sinT + localY * cosT;
-      const depthScale = 0.7 + (zDepth + 1) * 0.32;
+      const depthScale = 0.72 + (zDepth + 1) * 0.34;
 
       return { x, y, zDepth, size: sat.size * depthScale, color: sat.color };
     });
 
-    // Subtle faint orbital rings
+    // Subtle orbital rings
     for (let i = 0; i < 6; i++) {
       const sat = satellites3D[i * 3];
       ctxBack.save();
@@ -365,14 +365,14 @@
       ctxBack.rotate(sat.tilt);
       ctxBack.beginPath();
       ctxBack.ellipse(0, 0, sat.rx, sat.ry, 0, 0, Math.PI * 2);
-      ctxBack.strokeStyle = `rgba(${sat.color.rgb}, 0.13)`;
-      ctxBack.lineWidth = 0.9;
+      ctxBack.strokeStyle = `rgba(${sat.color.rgb}, 0.24)`;
+      ctxBack.lineWidth = 1.4;
       ctxBack.stroke();
       ctxBack.restore();
     }
 
     // Proximity Synaptic Links whenever any two satellites get close!
-    const maxLinkDist = isActive ? 152 : 128;
+    const maxLinkDist = isActive ? 175 : 148;
     for (let i = 0; i < projected.length; i++) {
       for (let j = i + 1; j < projected.length; j++) {
         const a = projected[i];
@@ -383,14 +383,14 @@
           const targetCtx = a.zDepth >= 0 && b.zDepth >= 0 ? ctxFront : ctxBack;
 
           const grad = targetCtx.createLinearGradient(a.x, a.y, b.x, b.y);
-          grad.addColorStop(0, `rgba(${a.color.rgb}, ${0.25 + proximity * 0.72})`);
-          grad.addColorStop(1, `rgba(${b.color.rgb}, ${0.25 + proximity * 0.72})`);
+          grad.addColorStop(0, `rgba(${a.color.rgb}, ${0.35 + proximity * 0.65})`);
+          grad.addColorStop(1, `rgba(${b.color.rgb}, ${0.35 + proximity * 0.65})`);
 
           targetCtx.beginPath();
           targetCtx.moveTo(a.x, a.y);
           targetCtx.lineTo(b.x, b.y);
           targetCtx.strokeStyle = grad;
-          targetCtx.lineWidth = 0.9 + proximity * (isActive ? 2.2 : 1.5);
+          targetCtx.lineWidth = 1.5 + proximity * (isActive ? 3.2 : 2.2);
           targetCtx.stroke();
         }
       }
@@ -399,11 +399,11 @@
     // Draw Multi-Color 3D Satellite Spheres
     projected.forEach((p) => {
       const targetCtx = p.zDepth >= 0 ? ctxFront : ctxBack;
-      const alpha = p.zDepth >= 0 ? 0.98 : 0.62;
+      const alpha = p.zDepth >= 0 ? 1.0 : 0.72;
 
       targetCtx.beginPath();
-      targetCtx.arc(p.x, p.y, p.size * 2.5, 0, Math.PI * 2);
-      targetCtx.fillStyle = `rgba(${p.color.rgb}, ${p.zDepth >= 0 ? 0.34 : 0.16})`;
+      targetCtx.arc(p.x, p.y, p.size * 2.6, 0, Math.PI * 2);
+      targetCtx.fillStyle = `rgba(${p.color.rgb}, ${p.zDepth >= 0 ? 0.42 : 0.22})`;
       targetCtx.fill();
 
       targetCtx.beginPath();
@@ -413,7 +413,7 @@
       targetCtx.fill();
       targetCtx.globalAlpha = 1;
 
-      targetCtx.lineWidth = 1.1;
+      targetCtx.lineWidth = 1.6;
       targetCtx.strokeStyle = '#ffffff';
       targetCtx.stroke();
     });
