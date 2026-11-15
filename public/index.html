@@ -65,11 +65,15 @@
             </div>
           </div>
 
-          <!-- 3D Interactive Doom Head Button + 3D Orbiting Satellites Over/Around Face -->
+          <!-- 3D Interactive Doom Head Button + Gyroscope Tilt + 3D Orbiting Satellites -->
           <div class="reactor-wrapper" id="reactorTouchArea" role="button" tabindex="0" title="Tocca la testa per parlare">
             <canvas id="reactorCanvasBack" class="reactor-canvas-layer" width="520" height="520"></canvas>
-            <div class="reactor-head-core" id="reactorHeadCore">
-              <img src="./doom-mask.png" alt="Nucleo AI" class="reactor-center-mask" id="brandMaskImg" />
+            <div class="reactor-head-3d-stage" id="reactorHead3DStage">
+              <div class="reactor-head-shadow" id="reactorHeadShadow"></div>
+              <div class="reactor-head-core" id="reactorHeadCore">
+                <img src="./doom-mask.png" alt="Nucleo AI" class="reactor-center-mask" id="brandMaskImg" />
+                <div class="reactor-specular-sheen" id="reactorSpecularSheen"></div>
+              </div>
             </div>
             <canvas id="reactorCanvasFront" class="reactor-canvas-layer reactor-canvas-front" width="520" height="520"></canvas>
           </div>

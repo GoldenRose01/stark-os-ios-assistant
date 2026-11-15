@@ -348,30 +348,52 @@ body.grid-edit-mode .hud-widget {
   z-index: 4;
 }
 
-/* Tactile 3D Button Doom Head */
-.reactor-head-core {
+/* 3D Gyroscope Tilt Stage for Doom Head */
+.reactor-head-3d-stage {
   position: relative;
   width: var(--mask-size);
   height: var(--mask-size);
-  border-radius: 50%;
-  padding: 3px;
-  background: linear-gradient(145deg, var(--accent-primary), rgba(0, 0, 0, 0.92));
-  box-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.85),
-    0 0 26px rgba(var(--accent-rgb), 0.52),
-    inset 0 2px 6px rgba(255, 255, 255, 0.38);
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.14s ease, box-shadow 0.14s ease;
+  pointer-events: none;
+}
+
+.reactor-head-shadow {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.55) 0%, rgba(0, 0, 0, 0.9) 75%);
+  filter: blur(10px);
+  transform: translate(0px, 6px);
+  z-index: 1;
+}
+
+.reactor-head-core {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  padding: 3px;
+  background: linear-gradient(145deg, var(--accent-primary), rgba(0, 0, 0, 0.94));
+  box-shadow:
+    0 12px 26px rgba(0, 0, 0, 0.9),
+    0 0 28px rgba(var(--accent-rgb), 0.52),
+    inset 0 2px 6px rgba(255, 255, 255, 0.4);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  will-change: transform;
+  transition: box-shadow 0.14s ease;
 }
 
 .reactor-wrapper:active .reactor-head-core {
-  transform: scale(0.92);
   box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.9),
-    0 0 36px rgba(var(--accent-rgb), 0.85);
+    0 4px 14px rgba(0, 0, 0, 0.95),
+    0 0 40px rgba(var(--accent-rgb), 0.88);
 }
 
 .reactor-center-mask {
@@ -380,7 +402,15 @@ body.grid-edit-mode .hud-widget {
   border-radius: 50%;
   object-fit: cover;
   display: block;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.8));
+}
+
+.reactor-specular-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.06) 38%, transparent 70%);
+  mix-blend-mode: screen;
+  pointer-events: none;
 }
 
 .neural-title {

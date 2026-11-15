@@ -307,6 +307,26 @@
   });
 
   function render3DFaceSatellites() {
+    if (!canvasBack || !canvasFront || !ctxBack || !ctxFront) return;
+
+    // Smoothly interpolate 3D gyroscope head tilt (plus subtle idle float when flat)
+    const idleX = gyro.enabled ? 0 : Math.sin(phase * 0.7) * 3.5;
+    const idleY = gyro.enabled ? 0 : Math.cos(phase * 0.5) * 3.0;
+    gyro.currX += (gyro.targetX + idleX - gyro.currX) * 0.14;
+    gyro.currY += (gyro.targetY + idleY - gyro.currY) * 0.14;
+
+    if (headCoreEl) {
+      headCoreEl.style.transform = `perspective(520px) rotateX(${(-gyro.currY).toFixed(2)}deg) rotateY(${gyro.currX.toFixed(2)}deg)`;
+    }
+    if (headShadowEl) {
+      headShadowEl.style.transform = `translate(${(-gyro.currX * 0.75).toFixed(1)}px, ${(6 - gyro.currY * 0.65).toFixed(1)}px)`;
+    }
+    if (headSheenEl) {
+      const sx = 50 + gyro.currX * 2.2;
+      const sy = 40 + gyro.currY * 2.2;
+      headSheenEl.style.background = `radial-gradient(circle at ${sx.toFixed(0)}% ${sy.toFixed(0)}%, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.06) 38%, transparent 72%)`;
+    }
+
     const w = canvasBack.width;
     const h = canvasBack.height;
     const cx = w / 2;
