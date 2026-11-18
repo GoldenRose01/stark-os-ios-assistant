@@ -269,11 +269,63 @@
     });
   });
 
-  // 4. 3D SATELLITES WITH QUASI-RANDOM ORBITS, MULTI-COLORS & PROXIMITY SYNAPSES
+  // 4. 3D GYROSCOPE & PC MOUSE DOOM HEAD + QUASI-RANDOM MULTI-COLOR 3D SATELLITES
   const canvasBack = document.getElementById('reactorCanvasBack');
   const canvasFront = document.getElementById('reactorCanvasFront');
-  const ctxBack = canvasBack.getContext('2d');
-  const ctxFront = canvasFront.getContext('2d');
+  const ctxBack = canvasBack ? canvasBack.getContext('2d') : null;
+  const ctxFront = canvasFront ? canvasFront.getContext('2d') : null;
+  const headCoreEl = document.getElementById('reactorHeadCore');
+  const headShadowEl = document.getElementById('reactorHeadShadow');
+  const headSheenEl = document.getElementById('reactorSpecularSheen');
+
+  const gyro = { targetX: 0, targetY: 0, currX: 0, currY: 0, enabled: false };
+
+  function handleDeviceOrientation(e) {
+    if (typeof e.gamma !== 'number' || typeof e.beta !== 'number') return;
+    gyro.targetX = Math.max(-13, Math.min(13, e.gamma * 0.42));
+    gyro.targetY = Math.max(-13, Math.min(13, (e.beta - 42) * 0.35));
+    gyro.enabled = true;
+  }
+
+  function initGyroscope3DHead() {
+    if (window.DeviceOrientationEvent) {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        document.getElementById('reactorTouchArea')?.addEventListener(
+          'click',
+          () => {
+            DeviceOrientationEvent.requestPermission()
+              .then((res) => {
+                if (res === 'granted') {
+                  window.addEventListener('deviceorientation', handleDeviceOrientation, true);
+                }
+              })
+              .catch(() => {});
+          },
+          { once: true }
+        );
+      } else {
+        window.addEventListener('deviceorientation', handleDeviceOrientation, true);
+      }
+    }
+
+    // PC / Desktop Mouse 3D Parallax
+    window.addEventListener('mousemove', (e) => {
+      if (gyro.enabled) return;
+      const nx = (e.clientX / (window.innerWidth || 1) - 0.5) * 2;
+      const ny = (e.clientY / (window.innerHeight || 1) - 0.5) * 2;
+      gyro.targetX = nx * 13;
+      gyro.targetY = ny * 11;
+    });
+
+    document.addEventListener('mouseleave', () => {
+      if (!gyro.enabled) {
+        gyro.targetX = 0;
+        gyro.targetY = 0;
+      }
+    });
+  }
+  initGyroscope3DHead();
+
   let phase = 0;
 
   const SATELLITE_PALETTE = [
